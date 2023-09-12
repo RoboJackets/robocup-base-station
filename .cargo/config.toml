@@ -1,0 +1,4 @@
+[target.armv7-unknown-linux-gnueabihf]
+
+[build]
+target = "armv7-unknown-linux-gnueabihf"

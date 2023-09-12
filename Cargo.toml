@@ -1,0 +1,16 @@
+[package]
+name = "robocup-base-station"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitfield-struct = "0.5.4"
+embedded-hal = "0.2.7"
+ncomm = "0.1.2"
+sx127 = { git = "https://github.com/N8BWert/sx127" }
+
+[dependencies.rppal]
+version = "0.14.1"
+features = ["hal"]
