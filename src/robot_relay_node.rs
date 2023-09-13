@@ -35,7 +35,7 @@ impl<'a> RobotRelayNode<'a> {
 impl<'a> Node for RobotRelayNode<'a> {
     fn name(&self) -> String { String::from("Robot --> Cpu Node") }
 
-    fn get_update_rate(&self) -> u128 { 10 }
+    fn get_update_delay(&self) -> u128 { 10 }
 
     fn start(&mut self) {
         self.base_computer_publisher.send(self.robot_statuses);

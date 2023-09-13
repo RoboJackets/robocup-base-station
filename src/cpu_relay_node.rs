@@ -16,8 +16,8 @@ pub struct CpuRelayNode {
 }
 
 impl CpuRelayNode {
-    pub fn new(bind_address: &str, from_address: &str) -> Self {
-        let base_computer_subscriber = UdpSubscriber::new(bind_address, from_address);
+    pub fn new(bind_address: &str) -> Self {
+        let base_computer_subscriber = UdpSubscriber::new(bind_address, None);
 
         Self {
             base_computer_subscriber
@@ -29,7 +29,7 @@ impl Node for CpuRelayNode {
     fn name(&self) -> String { String::from("Cpu --> Robot Node") }
 
     // Basically, this node should always be running
-    fn get_update_rate(&self) -> u128 { 0 }
+    fn get_update_delay(&self) -> u128 { 0 }
 
     fn start(&mut self) {
         // TODO: Tell the robots we're starting up

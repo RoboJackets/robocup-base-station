@@ -10,11 +10,11 @@ To run the base station use one of the following commands
 
 ```sh
 cargo build --release
-./target/release/robocup-base-station "{Base Computer Address}" "{Base Computer Listening Address}"
+./target/release/robocup-base-station "{Base Computer Listening Address}"
 ```
 
 ```sh
-cargo run --release -- "{Base Computer Address}" "{Base Computer Listening Address}"
+cargo run --release -- "{Base Computer Listening Address}"
 ```
 
 ## Problem

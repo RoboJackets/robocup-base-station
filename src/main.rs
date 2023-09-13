@@ -26,14 +26,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut cpu_relay_node = CpuRelayNode::new(
         CPU_RELAY_BIND_ADDRESS,
-        args.get(0)
-                          .expect("Please provide the Base Computer address as the first argument")
-                          .as_str()
     );
     let mut robot_relay_node = RobotRelayNode::new(
         ROBOT_RELAY_BIND_ADDRESS,
         vec![
-            args.get(1)
+            args.get(0)
                 .expect("Please provide the Base Computer Listening Address as the second argument")
                 .as_str()
         ]
