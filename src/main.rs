@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ROBOT_RELAY_BIND_ADDRESS,
         vec![
             args.get(0)
-                .expect("Please provide the Base Computer Listening Address as the second argument")
+                .expect("Please provide the Base Computer Listening Address as the first argument")
                 .as_str()
         ]
     );
