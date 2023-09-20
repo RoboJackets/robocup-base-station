@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 bitfield-struct = "0.5.4"
 embedded-hal = "0.2.7"
-ncomm = "0.2.0"
+ncomm = "0.2.1"
 packed_struct = "0.10.1"
 sx127 = { git = "https://github.com/N8BWert/sx127" }
 rtp = { path = "robocup-fshare/include/rc-fshare/rtp" }
