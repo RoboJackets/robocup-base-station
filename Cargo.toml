@@ -16,3 +16,7 @@ rtp = { path = "robocup-fshare/include/rc-fshare/rtp" }
 [dependencies.rppal]
 version = "0.14.1"
 features = ["hal"]
+
+[dependencies.clap]
+version = "4.4.4"
+features = ["derive"]

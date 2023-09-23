@@ -51,19 +51,14 @@ impl<SPI, CS, RESET, DELAY, ERR, Data> Receive for RadioSubscriber<SPI, CS, RESE
         let data_size = Data::ByteArray::len();
 
         let mut radio = self.radio.lock().unwrap();
-        // TODO: We May Drop Packets if there are a bunch in the queue
-        match radio.read_packet() {
-            Ok(buffer) => {
-                for start in (0..=255).step_by(data_size) {
-                    if let Ok(data) = Data::unpack_from_slice(&buffer[start..=start+data_size]) {
-                        // TODO: Check that the data is real
-                        self.data.push(data);
-                    } else {
-                        return;
-                    }
+        // TODO (Nathaniel Wert): We May Drop Packets if there are a bunch in the queue
+        if let Ok(buffer) = radio.read_packet() {
+            for start in (0..=255).step_by(data_size) {
+                match Data::unpack_from_slice(&buffer[start..=start+data_size]) {
+                    Ok(data) => self.data.push(data),
+                    _ => return,
                 }
-            },
-            Err(_) => return,
+            }
         }
     }
 }

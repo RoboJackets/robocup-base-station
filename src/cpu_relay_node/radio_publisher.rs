@@ -59,12 +59,8 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send> Publish<Data
         packet[0..packed_data.len()].copy_from_slice(packed_data);
 
         let mut radio = self.radio.lock().unwrap();
-        match radio.transmit_payload_busy(packet, packed_data.len()) {
-            Ok(_) => return,
-            Err(_) => {
-                println!("Unable to Send");
-                return;
-            }
+        if radio.transmit_payload_busy(packet, packed_data.len()).is_err() {
+            println!("Unable to Send");
         }
     }
 }
