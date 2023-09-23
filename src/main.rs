@@ -22,7 +22,7 @@ pub mod timeout_checker;
 
 use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 
-use rtp::Team;
+use robojackets_robocup_rtp::Team;
 use sx127::LoRa;
 
 use clap::Parser;

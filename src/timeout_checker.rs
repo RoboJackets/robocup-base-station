@@ -11,8 +11,8 @@ use embedded_hal::digital::v2::OutputPin;
 
 use ncomm::{publisher_subscriber::{local::LocalSubscriber, Publish, Receive}, node::Node};
 
-use rtp::control_command::ControlCommand;
-use rtp::Team;
+use robojackets_robocup_rtp::control_command::ControlCommand;
+use robojackets_robocup_rtp::Team;
 
 use sx127::LoRa;
 

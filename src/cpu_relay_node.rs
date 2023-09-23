@@ -8,8 +8,8 @@ use ncomm::publisher_subscriber::Publish;
 use ncomm::publisher_subscriber::{Receive, udp::UdpSubscriber};
 use ncomm::node::Node;
 
-use rtp::Team;
-use rtp::control_message::ControlMessage;
+use robojackets_robocup_rtp::Team;
+use robojackets_robocup_rtp::control_message::ControlMessage;
 
 use sx127::LoRa;
 

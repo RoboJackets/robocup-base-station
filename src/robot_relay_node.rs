@@ -15,8 +15,8 @@ use ncomm::publisher_subscriber::local::{LocalPublisher, LocalSubscriber};
 use ncomm::publisher_subscriber::{Publish, udp::UdpPublisher};
 use ncomm::node::Node;
 
-use rtp::Team;
-use rtp::robot_status_message::RobotStatusMessage;
+use robojackets_robocup_rtp::Team;
+use robojackets_robocup_rtp::robot_status_message::RobotStatusMessage;
 
 pub mod radio_subscriber;
 use radio_subscriber::RadioSubscriber;
