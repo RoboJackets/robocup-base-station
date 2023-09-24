@@ -48,11 +48,15 @@ impl<SPI, CS, RESET, DELAY, ERR> TimeoutCheckerNode<SPI, CS, RESET, DELAY, ERR>
         timeout_duration: u128,
     ) -> Self {
         let radio_publisher = RadioPublisher::new(radio_peripherals);
+        let mut alive_robots = Vec::with_capacity(num_robots as usize);
+        for _ in 0..num_robots {
+            alive_robots.push(false);
+        }
 
         Self {
             radio_publisher,
             last_send_subscribers,
-            alive_robots: Vec::with_capacity(num_robots as usize),
+            alive_robots,
             team,
             num_robots,
             timeout_duration,

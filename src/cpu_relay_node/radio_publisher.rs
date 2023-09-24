@@ -10,7 +10,7 @@ use ncomm::publisher_subscriber::Publish;
 use packed_struct::PackedStruct;
 
 use packed_struct::types::bits::ByteArray;
-use sx127::LoRa;
+use sx127::{LoRa, RadioMode};
 
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
@@ -51,7 +51,7 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> 
         let packed_data = match data.pack() {
             Ok(bytes) => bytes,
             Err(err) => {
-                println!("Unable to Send: {:?}", err);
+                println!("Unable to Pack Data: {:?}", err);
                 return;
             },
         };
@@ -63,8 +63,21 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> 
         packet[1..1+packed_data.len()].copy_from_slice(packed_data);
 
         let mut radio = self.radio.lock().unwrap();
-        if radio.transmit_payload_busy(packet, packed_data.len()).is_err() {
-            println!("Unable to Send");
+
+        if radio.set_tx_power(17, 1).is_err() {
+            println!("Unable to set transmit power");
+        }
+
+        if let Err(err) = radio.transmit_payload_busy(packet, packed_data.len()) {
+            match err {
+                sx127::Error::CS(_) => println!("CS Error"),
+                sx127::Error::Reset(_) => println!("RESET Error"),
+                sx127::Error::SPI(_) => println!("SPI Error"),
+                sx127::Error::Transmitting => println!("Transmitting Error"),
+                _ => println!("Unknown Error"),
+            }
+        } else {
+            println!("SUCCESS");
         }
     }
 }

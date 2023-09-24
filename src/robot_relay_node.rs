@@ -92,14 +92,16 @@ impl<'a, SPI, CS, RESET, DELAY, ERR> Node for RobotRelayNode<'a, SPI, CS, RESET,
     fn update(&mut self) {
         self.radio_subscriber.update_data();
 
-        for data in self.radio_subscriber.data.drain(0..) {
-            println!("Received Data From Robots:\n{:?}", data);
-            // Tell Timeout Checker We Have Received Data from the Robot
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
-            self.last_send_publishers.get_mut(*data.robot_id as usize).unwrap().send(now);
+        if !self.radio_subscriber.data.is_empty() {
+            for data in self.radio_subscriber.data.drain(0..) {
+                println!("Received Data From Robots:\n{:?}", data);
+                // Tell Timeout Checker We Have Received Data from the Robot
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
+                self.last_send_publishers.get_mut(*data.robot_id as usize).unwrap().send(now);
             
-            // Forward the Data Along
-            self.base_computer_publisher.send(data);
+                // Forward the Data Along
+                self.base_computer_publisher.send(data);
+            }
         }
     }
 

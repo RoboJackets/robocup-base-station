@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // Get Peripherals
-    let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 8_000_000, Mode::Mode0)?;
+    let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
     let gpio = Gpio::new()?;
     let cs = gpio.get(0u8)?.into_output();
     let reset = gpio.get(1u8)?.into_output();
@@ -106,10 +106,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         args.robots,
     );
 
+    let subscribers = robot_relay_node.create_subscriber();
+    println!("Subscribers: {}", subscribers.len());
+
     // Create the process that keeps up to date with reviving and sleeping the robots
     let mut timeout_checker = TimeoutCheckerNode::new(
         radio,
-        robot_relay_node.create_subscriber(),
+        subscribers,
         team,
         args.robots,
         args.timeout,
