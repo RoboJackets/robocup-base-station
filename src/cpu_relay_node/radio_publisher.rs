@@ -16,21 +16,24 @@ use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
+use robojackets_robocup_rtp::RTPHeader;
+
 /// The Radio Publisher wraps the SX127 Library with the ncomm Publish trait to
-/// make the codebase more uniform.
+/// make the codebase more uniform.  The data prefix will be sent before messages published.
+/// It is mainly to allow the receiver to decipher the message type.
 pub struct RadioPublisher<
     SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>,
     CS: OutputPin,
     RESET: OutputPin,
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR,
-    Data: PackedStruct + Clone + Send
+    Data: PackedStruct + Clone + Send + RTPHeader,
 > {
     radio: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
     phantom: PhantomData<Data>,
 }
 
-impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send> RadioPublisher<SPI, CS, RESET, DELAY, ERR, Data>
+impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> RadioPublisher<SPI, CS, RESET, DELAY, ERR, Data>
     where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin, 
     RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
     pub fn new(radio: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>) -> Self {
@@ -41,7 +44,7 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send> RadioPublish
     }
 }
 
-impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send> Publish<Data> for RadioPublisher<SPI, CS, RESET, DELAY, ERR, Data>
+impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> Publish<Data> for RadioPublisher<SPI, CS, RESET, DELAY, ERR, Data>
     where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin, RESET: OutputPin,
     DELAY: DelayMs<u8> + DelayUs<u8> {
     fn send(&mut self, data: Data) {
@@ -56,7 +59,8 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send> Publish<Data
         let packed_data = packed_data.as_bytes_slice();
 
         let mut packet = [0u8; 255];
-        packet[0..packed_data.len()].copy_from_slice(packed_data);
+        packet[0] = Data::get_header() as u8;
+        packet[1..1+packed_data.len()].copy_from_slice(packed_data);
 
         let mut radio = self.radio.lock().unwrap();
         if radio.transmit_payload_busy(packet, packed_data.len()).is_err() {
@@ -68,4 +72,4 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send> Publish<Data
 // I wrapped the radio peripheral with an arc mutex so this node is thread safe.
 unsafe impl<SPI, CS, RESET, DELAY, ERR, Data> Send for RadioPublisher<SPI, CS, RESET, DELAY, ERR, Data> where
     SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin,
-    RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8>, Data: PackedStruct + Clone + Send {}
+    RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8>, Data: PackedStruct + Clone + Send + RTPHeader {}

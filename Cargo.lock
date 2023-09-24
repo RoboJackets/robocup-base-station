@@ -294,9 +294,9 @@ dependencies = [
 
 [[package]]
 name = "robojackets-robocup-rtp"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "275cfdb15e613639e2574e5873d28841f8b91e2b937ad17e87c9b424fa3e13c5"
+checksum = "977d69f361b0a9f66275f2805b95af5bd692970ac8c4a773970044a84b1f1df3"
 dependencies = [
  "packed_struct",
 ]
