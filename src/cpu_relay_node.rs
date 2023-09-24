@@ -70,6 +70,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
 
         // If Data from Base Computer, Publish it to the Robots
         if let Some(data) = self.base_computer_subscriber.data.take() {
+            println!("Received Data From CPI:\n{:?}", data);
             self.radio_publisher.send(data);
         }
     }
