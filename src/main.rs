@@ -32,6 +32,10 @@ use timeout_checker::TimeoutCheckerNode;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    // The address of the base computer udp socket to publish robot status messages to
+    #[arg(required = true)]
+    pub base_computer_address: String,
+
     // The address on the raspberry pi computer to bind the udp socket that is 
     // listening to incoming data from the base computer
     #[arg(default_value_t = String::from("0.0.0.0:8000"))]
@@ -42,11 +46,6 @@ struct Args {
     #[arg(default_value_t = String::from("0.0.0.0:8001"))]
     pub send_bind_address: String,
 
-    // The address of the base computer udp socket to publish robot status messages to
-    #[arg(required = true)]
-    pub base_computer_address: String,
-
-    // Boolean value to determine whether the team this base station is sending commands to
     // is the blue team
     // TODO (Nathaniel Wert): Combine Blue and Yellow to be a singular flag that parses the team
     // color
