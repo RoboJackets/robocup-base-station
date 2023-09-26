@@ -12,21 +12,17 @@ use std::sync::{Arc, Mutex};
 
 use ncomm::executor::{Executor, simple_multi_executor::SimpleMultiExecutor};
 
-pub mod cpu_relay_node;
-use cpu_relay_node::CpuRelayNode;
-
-pub mod robot_relay_node;
-use robot_relay_node::RobotRelayNode;
-
-pub mod timeout_checker;
+use robocup_base_station::cpu_relay_node::CpuRelayNode;
+use robocup_base_station::robot_relay_node::RobotRelayNode;
+use robocup_base_station::timeout_checker::TimeoutCheckerNode;
 
 use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 
 use robojackets_robocup_rtp::Team;
+
 use sx127::LoRa;
 
 use clap::Parser;
-use timeout_checker::TimeoutCheckerNode;
 
 /// The Arguments passed to the base station program.
 #[derive(Parser)]

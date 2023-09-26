@@ -10,7 +10,7 @@ use ncomm::publisher_subscriber::Publish;
 use packed_struct::PackedStruct;
 
 use packed_struct::types::bits::ByteArray;
-use sx127::{LoRa, RadioMode};
+use sx127::LoRa;
 
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
