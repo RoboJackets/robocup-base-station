@@ -355,7 +355,7 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 [[package]]
 name = "sx127"
 version = "0.3.1"
-source = "git+https://github.com/N8BWert/sx127#21e228b17819bcfe2e2692e482656ef61f4b013a"
+source = "git+https://github.com/N8BWert/sx127#221993e3d5abaa768bb8e03c00e19e63555fd467"
 dependencies = [
  "bit_field",
  "embedded-hal 0.2.7",
