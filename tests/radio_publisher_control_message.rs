@@ -13,12 +13,12 @@ use robojackets_robocup_rtp::Team;
 fn test_publish_control_message() {
     let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap();
     let gpio = Gpio::new().unwrap();
-    let cs = gpio.get(0u8).unwrap().into_output();
-    let reset = gpio.get(1u8).unwrap().into_output();
+    let cs = gpio.get(8u8).unwrap().into_output();
+    let reset = gpio.get(21u8).unwrap().into_output();
     let delay = Delay::new();
 
     // Create Radio
-    let radio = LoRa::new(spi, cs, reset, 1_000_000, delay).unwrap();
+    let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
     // Wrap Radio in Mutex
     let radio = Arc::new(Mutex::new(radio));
 

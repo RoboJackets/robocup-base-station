@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let delay = Delay::new();
 
     // Create Radio
-    let radio = LoRa::new(spi, cs, reset, 8_000_000, delay).unwrap();
+    let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
     let radio = Arc::new(Mutex::new(radio));
 
     // Create the process that receives commands from the base computer and relays such commands to the robots
