@@ -4,6 +4,7 @@
         "./Cargo.toml"
     ],
     "rust-analyzer.check.extraArgs": [
+        "--bins",
         "--tests",
     ]
 }
