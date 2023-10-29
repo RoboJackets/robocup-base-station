@@ -40,3 +40,7 @@ When using rust-analyzer and cross compiling this project to the raspberry pi in
     "rust-analyzer.cargo.target": "aarch64-unknown-linux-gnu",
 }
 ```
+
+## Workflow
+
+![Base Station Information Flow](./docs/base-station-design.png)
