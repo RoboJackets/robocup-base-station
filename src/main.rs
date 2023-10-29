@@ -93,6 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Create the process that receives status messages from the robots and relays that information to the base computer
+    // This node has a static lifetime because it is going to be controlled by an interrupt.
     let send_bind_address = Box::new(args.send_bind_address);
     let base_computer_address = Box::new(args.base_computer_address);
     let mut robot_relay_node = RobotRelayNode::new(
