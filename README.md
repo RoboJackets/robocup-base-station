@@ -37,6 +37,6 @@ When using rust-analyzer and cross compiling this project to the raspberry pi in
 
 ```json
 {
-    "rust-analyzer.cargo.target": "armv7-unknown-linux-gnueabihf",
+    "rust-analyzer.cargo.target": "aarch64-unknown-linux-gnu",
 }
 ```

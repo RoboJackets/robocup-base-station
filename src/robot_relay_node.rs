@@ -7,56 +7,108 @@
 //! C++ codebase.
 //! 
 
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use ncomm::publisher_subscriber::{Receive, Subscribe};
+use ncomm::publisher_subscriber::local::{LocalPublisher, LocalSubscriber};
 use ncomm::publisher_subscriber::{Publish, udp::UdpPublisher};
 use ncomm::node::Node;
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct Data {
+use robojackets_robocup_rtp::Team;
+use robojackets_robocup_rtp::robot_status_message::RobotStatusMessage;
 
+pub mod radio_subscriber;
+use radio_subscriber::RadioSubscriber;
+
+use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
+use embedded_hal::digital::v2::OutputPin;
+use sx127::LoRa;
+
+/// The Robot Relay Node Subscribes to the Messages coming from the robots via radio and sends this
+/// information to the base computer.  It also notes when the last time it received data from the
+/// robots and forwards this data to the timeout checker so that it can deal with determining which
+/// robots are alive.
+pub struct RobotRelayNode<
+    'a,
+    SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>,
+    CS: OutputPin,
+    RESET: OutputPin,
+    DELAY: DelayMs<u8> + DelayUs<u8>,
+    ERR
+> {
+    base_computer_publisher: UdpPublisher<'a, RobotStatusMessage, 126>,
+    radio_subscriber: RadioSubscriber<SPI, CS, RESET, DELAY, ERR, RobotStatusMessage>,
+    last_send_publishers: Vec<LocalPublisher<u128>>,
+    num_robots: u8,
+    _team: Team,
 }
 
-pub struct RobotRelayNode<'a> {
-    base_computer_publisher: UdpPublisher<'a, [Data; 6], 24>,
-    robot_statuses: [Data; 6],
-}
-
-impl<'a> RobotRelayNode<'a> {
-    pub fn new(bind_address: &'a str, publish_addresses: Vec<&'a str>) -> Self {
+impl<'a, SPI, CS, RESET, DELAY, ERR> RobotRelayNode<'a, SPI, CS, RESET, DELAY, ERR>
+    where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin,
+    RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
+    pub fn new(
+        bind_address: &'a str,
+        publish_addresses: Vec<&'a str>,
+        radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
+        team: Team,
+        num_robots: u8,
+    ) -> Self {
         let base_computer_publisher = UdpPublisher::new(bind_address, publish_addresses);
+        let radio_subscriber = RadioSubscriber::new(radio_peripherals);
+        let mut last_send_publishers = Vec::with_capacity(num_robots as usize);
+        for _ in 0..num_robots {
+            last_send_publishers.push(LocalPublisher::new());
+        }
 
         Self {
             base_computer_publisher,
-            robot_statuses: [Data {}; 6],
+            radio_subscriber,
+            last_send_publishers,
+            num_robots,
+            _team: team,
         }
+    }
+
+    pub fn create_subscriber(&mut self) -> Vec<LocalSubscriber<u128>> {
+        let mut subscribers = Vec::with_capacity(self.num_robots as usize);
+        for publisher in self.last_send_publishers.iter_mut() {
+            subscribers.push(publisher.create_subscriber());
+        }
+        subscribers
     }
 }
 
-impl<'a> Node for RobotRelayNode<'a> {
+impl<'a, SPI, CS, RESET, DELAY, ERR> Node for RobotRelayNode<'a, SPI, CS, RESET, DELAY, ERR>
+    where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin,
+    RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
     fn name(&self) -> String { String::from("Robot --> Cpu Node") }
 
-    fn get_update_delay(&self) -> u128 { 10 }
+    fn get_update_delay(&self) -> u128 { 0 }
 
-    fn start(&mut self) {
-        self.base_computer_publisher.send(self.robot_statuses);
-    }
+    // Nothing to do on start
+    fn start(&mut self) { }
 
     fn update(&mut self) {
-        // TODO: Retrieve any incoming radio packets
+        self.radio_subscriber.update_data();
 
-        self.base_computer_publisher.send(self.robot_statuses);
+        if !self.radio_subscriber.data.is_empty() {
+            for data in self.radio_subscriber.data.drain(0..) {
+                println!("Received Data From Robots:\n{:?}", data);
+                // Tell Timeout Checker We Have Received Data from the Robot
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
+                self.last_send_publishers.get_mut(*data.robot_id as usize).unwrap().send(now);
+            
+                // Forward the Data Along
+                self.base_computer_publisher.send(data);
+            }
+        }
     }
 
-    fn shutdown(&mut self) {
-        // TODO: Send Robots Dead
-        self.base_computer_publisher.send([Data {}; 6]);
-    }
+    // Nothing to do on shutdown
+    fn shutdown(&mut self) { }
 
     fn debug(&self) -> String {
-        format!(
-            "{}\n{:?}",
-            self.name(),
-            self.robot_statuses
-        )
+        self.name()
     }
 }
