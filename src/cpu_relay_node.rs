@@ -30,7 +30,7 @@ pub struct CpuRelayNode<
     ERR
 > {
     base_computer_subscriber: UdpSubscriber<ControlMessage, 80>,
-    radio_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlMessage>,
+    control_message_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlMessage>,
     _team: Team,
 }
 
@@ -43,11 +43,11 @@ impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where
         team: Team,
     ) -> Self {
         let base_computer_subscriber = UdpSubscriber::new(bind_address, None);
-        let radio_publisher = RadioPublisher::new(radio_peripherals);
+        let control_message_publisher = RadioPublisher::new(radio_peripherals);
 
         Self {
             base_computer_subscriber,
-            radio_publisher,
+            control_message_publisher,
             _team: team,
         }
     }
@@ -71,7 +71,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
         // If Data from Base Computer, Publish it to the Robots
         if let Some(data) = self.base_computer_subscriber.data.take() {
             println!("Received Data From CPI:\n{:?}", data);
-            self.radio_publisher.send(data);
+            self.control_message_publisher.send(data);
         }
     }
 

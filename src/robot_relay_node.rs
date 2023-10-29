@@ -37,8 +37,8 @@ pub struct RobotRelayNode<
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR
 > {
-    base_computer_publisher: UdpPublisher<'a, RobotStatusMessage, 126>,
-    radio_subscriber: RadioSubscriber<SPI, CS, RESET, DELAY, ERR, RobotStatusMessage>,
+    robot_state_publisher: UdpPublisher<'a, RobotStatusMessage, 126>,
+    robot_status_subscriber: RadioSubscriber<SPI, CS, RESET, DELAY, ERR, RobotStatusMessage>,
     last_send_publishers: Vec<LocalPublisher<u128>>,
     num_robots: u8,
     _team: Team,
@@ -54,16 +54,16 @@ impl<'a, SPI, CS, RESET, DELAY, ERR> RobotRelayNode<'a, SPI, CS, RESET, DELAY, E
         team: Team,
         num_robots: u8,
     ) -> Self {
-        let base_computer_publisher = UdpPublisher::new(bind_address, publish_addresses);
-        let radio_subscriber = RadioSubscriber::new(radio_peripherals);
+        let robot_state_publisher = UdpPublisher::new(bind_address, publish_addresses);
+        let robot_status_subscriber = RadioSubscriber::new(radio_peripherals);
         let mut last_send_publishers = Vec::with_capacity(num_robots as usize);
         for _ in 0..num_robots {
             last_send_publishers.push(LocalPublisher::new());
         }
 
         Self {
-            base_computer_publisher,
-            radio_subscriber,
+            robot_state_publisher,
+            robot_status_subscriber,
             last_send_publishers,
             num_robots,
             _team: team,
@@ -90,17 +90,17 @@ impl<'a, SPI, CS, RESET, DELAY, ERR> Node for RobotRelayNode<'a, SPI, CS, RESET,
     fn start(&mut self) { }
 
     fn update(&mut self) {
-        self.radio_subscriber.update_data();
+        self.robot_status_subscriber.update_data();
 
-        if !self.radio_subscriber.data.is_empty() {
-            for data in self.radio_subscriber.data.drain(0..) {
+        if !self.robot_status_subscriber.data.is_empty() {
+            for data in self.robot_status_subscriber.data.drain(0..) {
                 println!("Received Data From Robots:\n{:?}", data);
                 // Tell Timeout Checker We Have Received Data from the Robot
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
                 self.last_send_publishers.get_mut(*data.robot_id as usize).unwrap().send(now);
             
                 // Forward the Data Along
-                self.base_computer_publisher.send(data);
+                self.robot_state_publisher.send(data);
             }
         }
     }

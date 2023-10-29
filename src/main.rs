@@ -10,6 +10,7 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
+use ncomm::node::Node;
 use ncomm::executor::{Executor, simple_multi_executor::SimpleMultiExecutor};
 
 use robocup_base_station::cpu_relay_node::CpuRelayNode;
@@ -92,10 +93,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Create the process that receives status messages from the robots and relays that information to the base computer
+    let send_bind_address = Box::new(args.send_bind_address);
+    let base_computer_address = Box::new(args.base_computer_address);
     let mut robot_relay_node = RobotRelayNode::new(
-        args.send_bind_address.as_str(),
+        Box::leak(send_bind_address),
         vec![
-            args.base_computer_address.as_str(),
+            Box::leak(base_computer_address),
         ],
         radio.clone(),
         team,
@@ -107,18 +110,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create the process that keeps up to date with reviving and sleeping the robots
     let mut timeout_checker = TimeoutCheckerNode::new(
-        radio,
+        radio.clone(),
         subscribers,
         team,
         args.robots,
         args.timeout,
     );
 
+    // Enable Interrupt on GPIO 2 for receiving and transmitting information from the robots
+    let mut radio_interrupt = gpio.get(2u8)?.into_input();
+    radio_interrupt.set_async_interrupt(rppal::gpio::Trigger::RisingEdge, move |_| {
+        robot_relay_node.update();
+    })?;
+
     // Add the processes to the executor
     let mut executor = SimpleMultiExecutor::new_with(
         vec![
             ("Cpu Relay Thread", &mut cpu_relay_node),
-            ("Robot Relay Thread", &mut robot_relay_node),
             ("Timeout Checker Thread", &mut timeout_checker),
         ]
     );

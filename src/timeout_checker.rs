@@ -29,7 +29,7 @@ pub struct TimeoutCheckerNode<
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR,
 > {
-    radio_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlCommand>,
+    wake_up_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlCommand>,
     last_send_subscribers: Vec<LocalSubscriber<u128>>,
     alive_robots: Vec<bool>,
     team: Team,
@@ -47,14 +47,14 @@ impl<SPI, CS, RESET, DELAY, ERR> TimeoutCheckerNode<SPI, CS, RESET, DELAY, ERR>
         num_robots: u8,
         timeout_duration: u128,
     ) -> Self {
-        let radio_publisher = RadioPublisher::new(radio_peripherals);
+        let wake_up_publisher = RadioPublisher::new(radio_peripherals);
         let mut alive_robots = Vec::with_capacity(num_robots as usize);
         for _ in 0..num_robots {
             alive_robots.push(false);
         }
 
         Self {
-            radio_publisher,
+            wake_up_publisher,
             last_send_subscribers,
             alive_robots,
             team,
@@ -74,7 +74,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for TimeoutCheckerNode<SPI, CS, RESET, DEL
     // Wake Up The Robots
     fn start(&mut self) {
         for robot_id in 0..self.num_robots {
-            self.radio_publisher.send(ControlCommand::wake_up(self.team, robot_id));
+            self.wake_up_publisher.send(ControlCommand::wake_up(self.team, robot_id));
         }
     }
 
@@ -95,7 +95,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for TimeoutCheckerNode<SPI, CS, RESET, DEL
 
         for robot_id in 0..self.num_robots {
             if !self.alive_robots[robot_id as usize] {
-                self.radio_publisher.send(ControlCommand::wake_up(self.team, robot_id));
+                self.wake_up_publisher.send(ControlCommand::wake_up(self.team, robot_id));
             }
         }
 
@@ -105,7 +105,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for TimeoutCheckerNode<SPI, CS, RESET, DEL
     // Shutdown the robots
     fn shutdown(&mut self) {
         for robot_id in 0..self.num_robots {
-            self.radio_publisher.send(ControlCommand::shut_down(self.team, robot_id));
+            self.wake_up_publisher.send(ControlCommand::shut_down(self.team, robot_id));
         }
     }
 
