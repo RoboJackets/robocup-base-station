@@ -77,7 +77,7 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> 
                 _ => println!("Unknown Error"),
             }
         } else {
-            println!("SUCCESS");
+            // println!("SUCCESS");
         }
     }
 }

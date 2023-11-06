@@ -16,6 +16,9 @@ use sx127::LoRa;
 pub mod radio_publisher;
 use radio_publisher::RadioPublisher;
 
+pub mod packed_struct_publisher;
+use packed_struct_publisher::PackedStructUdpSubscriber;
+
 use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
 use embedded_hal::digital::v2::OutputPin;
 
@@ -29,7 +32,7 @@ pub struct CpuRelayNode<
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR
 > {
-    base_computer_subscriber: UdpSubscriber<ControlMessage, 80>,
+    base_computer_subscriber: PackedStructUdpSubscriber<ControlMessage, 10>,
     control_message_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlMessage>,
     _team: Team,
 }
@@ -42,7 +45,7 @@ impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where
         radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
         team: Team,
     ) -> Self {
-        let base_computer_subscriber = UdpSubscriber::new(bind_address, None);
+        let base_computer_subscriber = PackedStructUdpSubscriber::new(bind_address, None);
         let control_message_publisher = RadioPublisher::new(radio_peripherals);
 
         Self {
@@ -69,8 +72,8 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
         self.base_computer_subscriber.update_data();
 
         // If Data from Base Computer, Publish it to the Robots
-        if let Some(data) = self.base_computer_subscriber.data.take() {
-            println!("Received Data From CPI:\n{:?}", data);
+        for data in self.base_computer_subscriber.data.drain(..) {
+            println!("Received Data from CPU:\n{:?}", data);
             self.control_message_publisher.send(data);
         }
     }
