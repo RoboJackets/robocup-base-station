@@ -5,7 +5,7 @@
 use std::sync::{Arc, Mutex};
 
 use ncomm::publisher_subscriber::Publish;
-use ncomm::publisher_subscriber::{Receive, udp::UdpSubscriber};
+use ncomm::publisher_subscriber::{Receive, packed_udp::BufferedPackedUdpSubscriber};
 use ncomm::node::Node;
 
 use robojackets_robocup_rtp::Team;
@@ -15,9 +15,6 @@ use sx127::LoRa;
 
 pub mod radio_publisher;
 use radio_publisher::RadioPublisher;
-
-pub mod packed_struct_publisher;
-use packed_struct_publisher::PackedStructUdpSubscriber;
 
 use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
 use embedded_hal::digital::v2::OutputPin;
@@ -32,7 +29,7 @@ pub struct CpuRelayNode<
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR
 > {
-    base_computer_subscriber: PackedStructUdpSubscriber<ControlMessage, 10>,
+    base_computer_subscriber: BufferedPackedUdpSubscriber<ControlMessage, 10>,
     control_message_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlMessage>,
     _team: Team,
 }
@@ -45,7 +42,7 @@ impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where
         radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
         team: Team,
     ) -> Self {
-        let base_computer_subscriber = PackedStructUdpSubscriber::new(bind_address, None);
+        let base_computer_subscriber = BufferedPackedUdpSubscriber::new(bind_address, None);
         let control_message_publisher = RadioPublisher::new(radio_peripherals);
 
         Self {

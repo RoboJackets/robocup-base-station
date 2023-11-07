@@ -208,11 +208,12 @@ checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 
 [[package]]
 name = "ncomm"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27cc67e6ad5badc1d0e5b001480d41c0b50afeef5612d134f4883568f8a42d7a"
+checksum = "9b874bf745a7e1e706ea446f2f15023342bca40a164bd2a514438bb37fb20456"
 dependencies = [
  "ctrlc",
+ "packed_struct",
 ]
 
 [[package]]
