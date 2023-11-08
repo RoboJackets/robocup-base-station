@@ -18,7 +18,7 @@ fn test_publish_wake_up() {
     let delay = Delay::new();
 
     // Create Radio
-    let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+    let mut radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
     // Wrap Radio in Mutex
     let radio = Arc::new(Mutex::new(radio));
 

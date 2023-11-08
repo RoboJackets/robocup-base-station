@@ -21,7 +21,7 @@ use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 
 use robojackets_robocup_rtp::Team;
 
-use sx127::LoRa;
+use sx127::{LoRa, RadioMode};
 
 use clap::Parser;
 
@@ -82,7 +82,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let delay = Delay::new();
 
     // Create Radio
-    let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+    let mut radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+    match radio.set_mode(RadioMode::RxContinuous) {
+        Ok(_) => println!("Listening"),
+        Err(_) => panic!("Unable to set to listening"),
+    }
     let radio = Arc::new(Mutex::new(radio));
 
     // Create the process that receives commands from the base computer and relays such commands to the robots
@@ -121,6 +125,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Enable Interrupt on GPIO 2 for receiving and transmitting information from the robots
     let mut radio_interrupt = gpio.get(2u8)?.into_input();
     radio_interrupt.set_async_interrupt(rppal::gpio::Trigger::RisingEdge, move |_| {
+        println!("Received Data");
         robot_relay_node.update();
     })?;
 

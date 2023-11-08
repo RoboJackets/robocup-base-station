@@ -1,9 +1,10 @@
 use std::{sync::{Arc, Mutex}, thread::sleep, time::Duration};
 
+use ncomm::publisher_subscriber::Receive;
 use robocup_base_station::robot_relay_node::radio_subscriber::RadioSubscriber;
 
 use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
-use sx127::LoRa;
+use sx127::{LoRa, RadioMode};
 
 use robojackets_robocup_rtp::robot_status_message::RobotStatusMessage;
 
@@ -17,19 +18,26 @@ fn send_data() {
     let delay = Delay::new();
 
     // Create Radio
-    let radio = LoRa::new(spi, cs, reset, 1_000_000, delay).unwrap();
-
+    let mut radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+    match radio.set_mode(RadioMode::RxContinuous) {
+        Ok(_) => println!("Listening"),
+        Err(_) => panic!("Couldn't set radio to receive"),
+    }
     // Wrap Radio in Mutex
     let radio = Arc::new(Mutex::new(radio));
 
-    let mut radio_subscriber = RadioSubscriber::new(radio);
+    let mut radio_subscriber: RadioSubscriber<Spi, rppal::gpio::OutputPin, rppal::gpio::OutputPin, Delay, rppal::spi::Error, RobotStatusMessage> = RadioSubscriber::new(radio);
 
-    while radio_subscriber.data.is_empty() {
+    let mut radio_interrupt = gpio.get(2u8).unwrap().into_input();
+    radio_interrupt.set_async_interrupt(rppal::gpio::Trigger::RisingEdge, move |_| {
+        radio_subscriber.update_data();
+
+        for e in radio_subscriber.data.drain(..) {
+            println!("Found Data: {:?}", e);
+        }
+    }).unwrap();
+
+    loop {
         sleep(Duration::from_secs(1));
-    }
-
-    for e in radio_subscriber.data.drain(..).into_iter().enumerate() {
-        let (_, data): (_, RobotStatusMessage) = e;
-        println!("Received: {:?}", data);
     }
 }

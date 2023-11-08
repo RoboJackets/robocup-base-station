@@ -93,7 +93,7 @@ impl<'a, SPI, CS, RESET, DELAY, ERR> Node for RobotRelayNode<'a, SPI, CS, RESET,
         self.robot_status_subscriber.update_data();
 
         if !self.robot_status_subscriber.data.is_empty() {
-            for data in self.robot_status_subscriber.data.drain(0..) {
+            for data in self.robot_status_subscriber.data.drain(..) {
                 println!("Received Data From Robots:\n{:?}", data);
                 // Tell Timeout Checker We Have Received Data from the Robot
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();

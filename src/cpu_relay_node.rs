@@ -70,8 +70,10 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
 
         // If Data from Base Computer, Publish it to the Robots
         for data in self.base_computer_subscriber.data.drain(..) {
-            println!("Received Data from CPU:\n{:?}", data);
-            self.control_message_publisher.send(data);
+            if data.robot_id == 0.into() {
+                println!("Received Data from CPU:\n{:?}", data);
+                self.control_message_publisher.send(data);
+            }
         }
     }
 

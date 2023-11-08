@@ -10,7 +10,7 @@ use ncomm::publisher_subscriber::Publish;
 use packed_struct::PackedStruct;
 
 use packed_struct::types::bits::ByteArray;
-use sx127::LoRa;
+use sx127::{LoRa, RadioMode};
 
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
@@ -78,6 +78,10 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> 
             }
         } else {
             // println!("SUCCESS");
+        }
+
+        if radio.set_mode(RadioMode::RxContinuous).is_err() {
+            println!("Unable to Listen");
         }
     }
 }

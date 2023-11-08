@@ -11,7 +11,7 @@ use packed_struct::PackedStruct;
 use packed_struct::PackedStructSlice;
 use packed_struct::types::bits::ByteArray;
 
-use sx127::LoRa;
+use sx127::{LoRa, RadioMode};
 
 use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
 use embedded_hal::digital::v2::OutputPin;
@@ -51,13 +51,12 @@ impl<SPI, CS, RESET, DELAY, ERR, Data> Receive for RadioSubscriber<SPI, CS, RESE
         let data_size = Data::ByteArray::len();
 
         let mut radio = self.radio.lock().unwrap();
-        // TODO (Nathaniel Wert): We May Drop Packets if there are a bunch in the queue
         if let Ok(buffer) = radio.read_packet() {
-            for start in (0..=255).step_by(data_size) {
-                match Data::unpack_from_slice(&buffer[start..=start+data_size]) {
-                    Ok(data) => self.data.push(data),
-                    _ => return,
-                }
+            match Data::unpack_from_slice(&buffer[0..data_size]) {
+                Ok(data) => {
+                    self.data.push(data);
+                },
+                Err(err) => println!("Unablet to decode: {:?}", err),
             }
         }
     }

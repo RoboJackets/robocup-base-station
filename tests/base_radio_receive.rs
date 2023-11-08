@@ -10,14 +10,14 @@ fn test_receive() {
     let delay = Delay::new();
 
     // Create Radio
-    let mut radio = LoRa::new(spi, cs, reset, 1_000_000, delay).unwrap();
+    let mut radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
 
     match radio.set_tx_power(17, 1) {
         Ok(_) => println!("Successfully set TX power"),
         Err(_) => panic!("Error Setting Tx Power"),
     }
 
-    match radio.set_mode(RadioMode::RxSingle) {
+    match radio.set_mode(RadioMode::RxContinuous) {
         Ok(_) => println!("Listening"),
         Err(_) => panic!("Couldn't set radio to receive"),
     }
