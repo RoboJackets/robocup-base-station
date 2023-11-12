@@ -7,12 +7,11 @@
 //! C++ codebase.
 //! 
 
-use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ncomm::publisher_subscriber::{Receive, Subscribe};
 use ncomm::publisher_subscriber::local::{LocalPublisher, LocalSubscriber};
-use ncomm::publisher_subscriber::{Publish, udp::UdpPublisher};
+use ncomm::publisher_subscriber::{Publish, packed_udp::PackedUdpPublisher};
 use ncomm::node::Node;
 
 use robojackets_robocup_rtp::Team;
@@ -37,7 +36,7 @@ pub struct RobotRelayNode<
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR
 > {
-    robot_state_publisher: UdpPublisher<'a, RobotStatusMessage, 126>,
+    robot_state_publisher: PackedUdpPublisher<'a, RobotStatusMessage>,
     robot_status_subscriber: RadioSubscriber<SPI, CS, RESET, DELAY, ERR, RobotStatusMessage>,
     last_send_publishers: Vec<LocalPublisher<u128>>,
     num_robots: u8,
@@ -50,11 +49,11 @@ impl<'a, SPI, CS, RESET, DELAY, ERR> RobotRelayNode<'a, SPI, CS, RESET, DELAY, E
     pub fn new(
         bind_address: &'a str,
         publish_addresses: Vec<&'a str>,
-        radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
+        radio_peripherals: LoRa<SPI, CS, RESET, DELAY>,
         team: Team,
         num_robots: u8,
     ) -> Self {
-        let robot_state_publisher = UdpPublisher::new(bind_address, publish_addresses);
+        let robot_state_publisher = PackedUdpPublisher::new(bind_address, publish_addresses);
         let robot_status_subscriber = RadioSubscriber::new(radio_peripherals);
         let mut last_send_publishers = Vec::with_capacity(num_robots as usize);
         for _ in 0..num_robots {
@@ -96,8 +95,8 @@ impl<'a, SPI, CS, RESET, DELAY, ERR> Node for RobotRelayNode<'a, SPI, CS, RESET,
             for data in self.robot_status_subscriber.data.drain(..) {
                 println!("Received Data From Robots:\n{:?}", data);
                 // Tell Timeout Checker We Have Received Data from the Robot
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
-                self.last_send_publishers.get_mut(*data.robot_id as usize).unwrap().send(now);
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+                self.last_send_publishers[*data.robot_id as usize].send(now);
             
                 // Forward the Data Along
                 self.robot_state_publisher.send(data);

@@ -2,7 +2,6 @@
 //! The Radio Subscriber Utilizes the LoRa Radio to Receive Data from the robots.
 //! 
 
-use std::sync::{Arc, Mutex};
 use std::marker::{Send, PhantomData};
 
 use ncomm::publisher_subscriber::Receive;
@@ -11,7 +10,8 @@ use packed_struct::PackedStruct;
 use packed_struct::PackedStructSlice;
 use packed_struct::types::bits::ByteArray;
 
-use sx127::{LoRa, RadioMode};
+use robojackets_robocup_rtp::MessageType;
+use sx127::LoRa;
 
 use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
 use embedded_hal::digital::v2::OutputPin;
@@ -25,7 +25,7 @@ pub struct RadioSubscriber<
     ERR,
     Data: PackedStruct + Clone + Send
 > {
-    radio: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
+    radio: LoRa<SPI, CS, RESET, DELAY>,
     phantom: PhantomData<Data>,
     pub data: Vec<Data>,
 }
@@ -34,7 +34,7 @@ impl<SPI, CS, RESET, DELAY, ERR, Data> RadioSubscriber<SPI, CS, RESET, DELAY, ER
     where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin,
     RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8>, Data: PackedStruct + Clone + Send {
 
-    pub fn new(radio: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>) -> Self {
+    pub fn new(radio: LoRa<SPI, CS, RESET, DELAY>) -> Self {
         Self {
             radio,
             phantom: PhantomData,
@@ -48,15 +48,21 @@ impl<SPI, CS, RESET, DELAY, ERR, Data> Receive for RadioSubscriber<SPI, CS, RESE
     RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8>, Data: PackedStruct + Clone + Send {
 
     fn update_data(&mut self) {
-        let data_size = Data::ByteArray::len();
-
-        let mut radio = self.radio.lock().unwrap();
-        if let Ok(buffer) = radio.read_packet() {
-            match Data::unpack_from_slice(&buffer[0..data_size]) {
-                Ok(data) => {
-                    self.data.push(data);
+        if let Ok(buffer) = self.radio.read_packet() {
+            match MessageType::from(buffer[0]) {
+                MessageType::RobotStatusMessage => {
+                    let target_message_length = <Data as PackedStruct>::ByteArray::len();
+                    match Data::unpack_from_slice(&buffer[1..(1+target_message_length)]) {
+                        Ok(message) => {
+                            self.data.push(message);
+                            println!("Received Message");
+                        },
+                        Err(_) => {
+                            println!("Unable to decode message");
+                        }
+                    }
                 },
-                Err(err) => println!("Unablet to decode: {:?}", err),
+                _ => (),
             }
         }
     }

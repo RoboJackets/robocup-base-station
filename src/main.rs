@@ -4,7 +4,23 @@
 //! 1. Receive commands from the Field Computer and forward said commands to the robots
 //! 2. Receive information from the Robots and forward alive robot information to the base computer
 //! 
-//! We will also be using 2 sx127 radios.
+//! The Send Radio uses SPI0 and the following pinout:
+//! -> SCLK = GPIO 11 (pin 23)
+//! -> MISO = GPIO 9 (pin 21)
+//! -> MOSI = GPIO 10 (pin 19)
+//! -> CSN = GPIO 8 (pin 24)
+//! -> RESET = GPIO 2 (pin 3)
+//! 
+//! The Receive Radio Uses SPI1 and the following pinout:
+//! -> SCLK = GPIO 21 (pin 40)
+//! -> MISO = GPIO 19 (pin 35)
+//! -> MOSI = GPIO 20 (pin 38)
+//! -> CSN = GPIO 16 (pin 36)
+//! -> RESET = GPIO 26 (pin 37)
+//! -> IRQ = GPIO 13 (pin 33)
+//! 
+//! THe sx127x radio only has 1 Fifo so the volume of transmissions on it will cause
+//! the send or receive data to be overwritten which is why there are two here.
 //! 
 
 use std::error::Error;
@@ -77,23 +93,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Get Peripherals
     let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
     let gpio = Gpio::new()?;
-    let cs = gpio.get(0u8)?.into_output();
-    let reset = gpio.get(1u8)?.into_output();
+    let cs = gpio.get(8u8)?.into_output();
+    let reset = gpio.get(2u8)?.into_output();
     let delay = Delay::new();
 
     // Create Radio
-    let mut radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
-    match radio.set_mode(RadioMode::RxContinuous) {
+    let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+    let radio = Arc::new(Mutex::new(radio));
+
+    // Create Receive Radio
+    let spi = Spi::new(Bus::Spi1, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
+    let cs = gpio.get(16u8)?.into_output();
+    let reset = gpio.get(26u8)?.into_output();
+    let delay = Delay::new();
+
+    let mut receive_radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+    match receive_radio.set_mode(RadioMode::RxContinuous) {
         Ok(_) => println!("Listening"),
         Err(_) => panic!("Unable to set to listening"),
     }
-    let radio = Arc::new(Mutex::new(radio));
 
     // Create the process that receives commands from the base computer and relays such commands to the robots
     let mut cpu_relay_node = CpuRelayNode::new(
         args.receive_bind_address.as_str(),
         radio.clone(),
         team,
+        args.robots,
     );
 
     // Create the process that receives status messages from the robots and relays that information to the base computer
@@ -105,7 +130,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         vec![
             Box::leak(base_computer_address),
         ],
-        radio.clone(),
+        receive_radio,
         team,
         args.robots,
     );
@@ -123,7 +148,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Enable Interrupt on GPIO 2 for receiving and transmitting information from the robots
-    let mut radio_interrupt = gpio.get(2u8)?.into_input();
+    let mut radio_interrupt = gpio.get(13u8)?.into_input();
     radio_interrupt.set_async_interrupt(rppal::gpio::Trigger::RisingEdge, move |_| {
         println!("Received Data");
         robot_relay_node.update();

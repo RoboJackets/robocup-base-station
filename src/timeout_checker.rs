@@ -69,7 +69,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for TimeoutCheckerNode<SPI, CS, RESET, DEL
     RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
     fn name(&self) -> String { String::from("Timeout Checker") }
 
-    fn get_update_delay(&self) -> u128 { 100 }
+    fn get_update_delay(&self) -> u128 { self.timeout_duration }
 
     // Wake Up The Robots
     fn start(&mut self) {
@@ -79,10 +79,9 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for TimeoutCheckerNode<SPI, CS, RESET, DEL
     }
 
     fn update(&mut self) {
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-
         for robot_id in 0..self.num_robots {
             self.last_send_subscribers[robot_id as usize].update_data();
+            let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
             match self.last_send_subscribers[robot_id as usize].data {
                 Some(timestamp) => {

@@ -32,6 +32,7 @@ pub struct CpuRelayNode<
     base_computer_subscriber: BufferedPackedUdpSubscriber<ControlMessage, 10>,
     control_message_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlMessage>,
     _team: Team,
+    robots: u8,
 }
 
 impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where 
@@ -41,6 +42,7 @@ impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where
         bind_address: &str,
         radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
         team: Team,
+        robots: u8,
     ) -> Self {
         let base_computer_subscriber = BufferedPackedUdpSubscriber::new(bind_address, None);
         let control_message_publisher = RadioPublisher::new(radio_peripherals);
@@ -49,6 +51,7 @@ impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where
             base_computer_subscriber,
             control_message_publisher,
             _team: team,
+            robots,
         }
     }
 }
@@ -70,7 +73,7 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
 
         // If Data from Base Computer, Publish it to the Robots
         for data in self.base_computer_subscriber.data.drain(..) {
-            if data.robot_id == 0.into() {
+            if *data.robot_id < self.robots {
                 println!("Received Data from CPU:\n{:?}", data);
                 self.control_message_publisher.send(data);
             }
