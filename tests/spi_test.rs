@@ -3,8 +3,6 @@ use std::{thread::sleep, time::Duration};
 use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 use sx127::LoRa;
 
-use embedded_hal::blocking::spi::{Transfer, Write};
-
 #[test]
 fn test_base_radio_send_hello() {
     let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap();

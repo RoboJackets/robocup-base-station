@@ -24,7 +24,6 @@
 //! 
 
 use std::error::Error;
-use std::sync::{Arc, Mutex};
 
 use ncomm::node::Node;
 use ncomm::executor::{Executor, simple_multi_executor::SimpleMultiExecutor};
@@ -99,7 +98,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create Radio
     let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
-    let radio = Arc::new(Mutex::new(radio));
 
     // Create Receive Radio
     let spi = Spi::new(Bus::Spi1, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
@@ -116,7 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create the process that receives commands from the base computer and relays such commands to the robots
     let mut cpu_relay_node = CpuRelayNode::new(
         args.receive_bind_address.as_str(),
-        radio.clone(),
+        radio,
         team,
         args.robots,
     );
@@ -140,9 +138,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create the process that keeps up to date with reviving and sleeping the robots
     let mut timeout_checker = TimeoutCheckerNode::new(
-        radio.clone(),
         subscribers,
-        team,
         args.robots,
         args.timeout,
     );

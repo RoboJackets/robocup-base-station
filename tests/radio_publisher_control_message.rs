@@ -1,4 +1,4 @@
-use std::{sync::{Arc, Mutex}, thread::sleep, time::Duration};
+use std::{thread::sleep, time::Duration};
 
 use ncomm::publisher_subscriber::Publish;
 use robocup_base_station::cpu_relay_node::radio_publisher::RadioPublisher;
@@ -19,8 +19,6 @@ fn test_publish_control_message() {
 
     // Create Radio
     let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
-    // Wrap Radio in Mutex
-    let radio = Arc::new(Mutex::new(radio));
 
     let mut radio_publisher = RadioPublisher::new(radio);
 

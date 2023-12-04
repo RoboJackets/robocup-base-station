@@ -2,10 +2,16 @@
 //! The CPU Relay Node takes commands from the Base Computer and Relays them to the robot.
 //! 
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use ncomm::publisher_subscriber::Publish;
-use ncomm::publisher_subscriber::{Receive, packed_udp::BufferedPackedUdpSubscriber};
+use ncomm::publisher_subscriber::Receive;
+#[cfg(not(feature = "benchmark"))]
+use ncomm::publisher_subscriber::packed_udp::MappedPackedUdpSubscriber;
+#[cfg(feature = "benchmark")]
+use ncomm::publisher_subscriber::packed_udp::BufferedPackedUdpSubscriber;
+#[cfg(feature = "benchmark")]
+use ncomm::publisher_subscriber::local::LocalPublisher;
 use ncomm::node::Node;
 
 use robojackets_robocup_rtp::Team;
@@ -29,7 +35,12 @@ pub struct CpuRelayNode<
     DELAY: DelayMs<u8> + DelayUs<u8>,
     ERR
 > {
+    #[cfg(not(feature = "benchmark"))]
+    base_computer_subscriber: MappedPackedUdpSubscriber<ControlMessage, u8, 10>,
+    #[cfg(feature = "benchmark")]
     base_computer_subscriber: BufferedPackedUdpSubscriber<ControlMessage, 10>,
+    #[cfg(feature = "benchmark")]
+    benchmark_publishers: Vec<LocalPublisher<u128>>,
     control_message_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlMessage>,
     _team: Team,
     robots: u8,
@@ -40,16 +51,23 @@ impl<SPI, CS, RESET, DELAY, ERR> CpuRelayNode<SPI, CS, RESET, DELAY, ERR> where
     RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8>{
     pub fn new(
         bind_address: &str,
-        radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
+        radio_peripherals: LoRa<SPI, CS, RESET, DELAY>,
         team: Team,
         robots: u8,
+        #[cfg(feature = "benchmark")]
+        benchmark_publisher: Vec<LocalPublisher<u128>>,
     ) -> Self {
+        #[cfg(not(feature = "benchmark"))]
+        let base_computer_subscriber = MappedPackedUdpSubscriber::new(bind_address, None, Arc::new(|data: &ControlMessage| { *data.robot_id }));
+        #[cfg(feature = "benchmark")]
         let base_computer_subscriber = BufferedPackedUdpSubscriber::new(bind_address, None);
         let control_message_publisher = RadioPublisher::new(radio_peripherals);
 
         Self {
             base_computer_subscriber,
             control_message_publisher,
+            #[cfg(feature = "benchmark")]
+            benchmark_publishers,
             _team: team,
             robots,
         }
@@ -62,7 +80,12 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
     fn name(&self) -> String { String::from("Cpu --> Robot Node") }
 
     // Basically, this node should always be running
-    fn get_update_delay(&self) -> u128 { 0 }
+    fn get_update_delay(&self) -> u128 {
+        #[cfg(not(feature = "benchmark"))]
+        return 100;
+        #[cfg(feature = "benchmark")]
+        return 0;
+    }
 
     // The Timeout Checker tells the robots to wake up so this process doesn't have to do anything
     fn start(&mut self) { }
@@ -71,11 +94,17 @@ impl<SPI, CS, RESET, DELAY, ERR> Node for CpuRelayNode<SPI, CS, RESET, DELAY, ER
         // Update Data from Base Computer
         self.base_computer_subscriber.update_data();
 
-        // If Data from Base Computer, Publish it to the Robots
+        // Keep track of the data to send to the robots
+        #[cfg(feature = "benchmark")]
         for data in self.base_computer_subscriber.data.drain(..) {
-            if *data.robot_id < self.robots {
-                println!("Received Data from CPU:\n{:?}", data);
-                self.control_message_publisher.send(data);
+            self.control_message_publisher.send(data);
+        }
+
+        // Populate the data to send to the robots as the most recent per robot
+        #[cfg(not(feature = "benchmark"))]
+        for robot_id in 0..self.robots {
+            if let Some(control_message) = self.base_computer_subscriber.data.get(&robot_id) {
+                self.control_message_publisher.send(*control_message);
             }
         }
     }

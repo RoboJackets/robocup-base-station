@@ -2,7 +2,6 @@
 //! The Radio Publisher Utilizes the LoRa Radio to publish Data to the robots.
 //! 
 
-use std::sync::{Arc, Mutex};
 use std::marker::{Send, PhantomData};
 
 use ncomm::publisher_subscriber::Publish;
@@ -29,14 +28,14 @@ pub struct RadioPublisher<
     ERR,
     Data: PackedStruct + Clone + Send + RTPHeader,
 > {
-    radio: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
+    radio: LoRa<SPI, CS, RESET, DELAY>,
     phantom: PhantomData<Data>,
 }
 
 impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> RadioPublisher<SPI, CS, RESET, DELAY, ERR, Data>
     where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin, 
     RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
-    pub fn new(radio: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>) -> Self {
+    pub fn new(radio: LoRa<SPI, CS, RESET, DELAY>) -> Self {
         Self {
             radio,
             phantom: PhantomData,
@@ -62,13 +61,11 @@ impl<SPI, CS, RESET, DELAY, ERR, Data: PackedStruct + Clone + Send + RTPHeader> 
         packet[0] = Data::get_header() as u8;
         packet[1..1+packed_data.len()].copy_from_slice(packed_data);
 
-        let mut radio = self.radio.lock().unwrap();
-
-        if radio.set_tx_power(17, 1).is_err() {
+        if self.radio.set_tx_power(17, 1).is_err() {
             println!("Unable to set transmit power");
         }
 
-        if let Err(err) = radio.transmit_payload_busy(packet, packed_data.len()) {
+        if let Err(err) = self.radio.transmit_payload_busy(packet, packed_data.len()) {
             match err {
                 sx127::Error::CS(_) => println!("CS Error"),
                 sx127::Error::Reset(_) => println!("RESET Error"),
