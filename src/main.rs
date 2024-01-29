@@ -60,8 +60,12 @@ struct Args {
     pub robots: u8,
 
     // The length in milliseconds of the timeout before we consider a robot dead
-    #[arg(short, long, default_value_t = 5_000)]
+    #[arg(short, long, default_value_t = 500)]
     pub timeout: u128,
+
+    // The number of radios used by the base-station to communicate with the robots
+    #[arg(short, long, default_value_t = false)]
+    pub two_radios: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -73,59 +77,70 @@ fn main() -> Result<(), Box<dyn Error>> {
         (false, true) => Team::Yellow,
     };
 
-    // Get Peripherals
-    let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
-    let gpio = Gpio::new()?;
-    let cs = gpio.get(0u8)?.into_output();
-    let reset = gpio.get(1u8)?.into_output();
-    let delay = Delay::new();
+    if args.two_radios {
+        // Get Peripherals
+        let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
+        let gpio = Gpio::new()?;
+        let ce = gpio.get(22)?.into_output();
+        let delay = Delay::new();
 
-    // Create Radio
-    let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
-    let radio = Arc::new(Mutex::new(radio));
+        // Create the radio
+        
+    } else {
+        // Get Peripherals
+        let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
+        let gpio = Gpio::new()?;
+        let cs = gpio.get(0u8)?.into_output();
+        let reset = gpio.get(1u8)?.into_output();
+        let delay = Delay::new();
 
-    // Create the process that receives commands from the base computer and relays such commands to the robots
-    let mut cpu_relay_node = CpuRelayNode::new(
-        args.receive_bind_address.as_str(),
-        radio.clone(),
-        team,
-    );
+        // Create Radio
+        let radio = LoRa::new(spi, cs, reset, 915, delay).unwrap();
+        let radio = Arc::new(Mutex::new(radio));
 
-    // Create the process that receives status messages from the robots and relays that information to the base computer
-    let mut robot_relay_node = RobotRelayNode::new(
-        args.send_bind_address.as_str(),
-        vec![
-            args.base_computer_address.as_str(),
-        ],
-        radio.clone(),
-        team,
-        args.robots,
-    );
+        // Create the process that receives commands from the base computer and relays such commands to the robots
+        let mut cpu_relay_node = CpuRelayNode::new(
+            args.receive_bind_address.as_str(),
+            radio.clone(),
+            team,
+        );
 
-    let subscribers = robot_relay_node.create_subscriber();
-    println!("Subscribers: {}", subscribers.len());
+        // Create the process that receives status messages from the robots and relays that information to the base computer
+        let mut robot_relay_node = RobotRelayNode::new(
+            args.send_bind_address.as_str(),
+            vec![
+                args.base_computer_address.as_str(),
+            ],
+            radio.clone(),
+            team,
+            args.robots,
+        );
 
-    // Create the process that keeps up to date with reviving and sleeping the robots
-    let mut timeout_checker = TimeoutCheckerNode::new(
-        radio,
-        subscribers,
-        team,
-        args.robots,
-        args.timeout,
-    );
+        let subscribers = robot_relay_node.create_subscriber();
+        println!("Subscribers: {}", subscribers.len());
 
-    // Add the processes to the executor
-    let mut executor = SimpleMultiExecutor::new_with(
-        vec![
-            ("Cpu Relay Thread", &mut cpu_relay_node),
-            ("Robot Relay Thread", &mut robot_relay_node),
-            ("Timeout Checker Thread", &mut timeout_checker),
-        ]
-    );
+        // Create the process that keeps up to date with reviving and sleeping the robots
+        let mut timeout_checker = TimeoutCheckerNode::new(
+            radio,
+            subscribers,
+            team,
+            args.robots,
+            args.timeout,
+        );
 
-    // Run the processes until ctrl-c received
-    executor.start();
-    executor.update_loop();
+        // Add the processes to the executor
+        let mut executor = SimpleMultiExecutor::new_with(
+            vec![
+                ("Cpu Relay Thread", &mut cpu_relay_node),
+                ("Robot Relay Thread", &mut robot_relay_node),
+                ("Timeout Checker Thread", &mut timeout_checker),
+            ]
+        );
+
+        // Run the processes until ctrl-c received
+        executor.start();
+        executor.update_loop();
+    }
 
     Ok(())
 }
