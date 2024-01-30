@@ -1,0 +1,1 @@
+pub mod nrf_pubsub;

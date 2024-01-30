@@ -4,116 +4,78 @@
 //! will continually send it a request to wake up.
 //! 
 
-use std::{sync::{Arc, Mutex}, time::{SystemTime, UNIX_EPOCH}};
-
-use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
-use embedded_hal::digital::v2::OutputPin;
-
-use ncomm::{publisher_subscriber::{local::LocalSubscriber, Publish, Receive}, node::Node};
-
-use robojackets_robocup_rtp::control_command::ControlCommand;
-use robojackets_robocup_rtp::Team;
-
-use sx127::LoRa;
-
-use crate::cpu_relay_node::radio_publisher::RadioPublisher;
+use ncomm::{publisher_subscriber::{local::{MappedLocalSubscriber, LocalPublisher}, udp::UdpPublisher, Publish, Receive}, node::Node};
 
 /// The Timeout Checker will receive the timestamps for last send from the RobotRelayNode
 /// and compute (every 100 ms) whether or not a robot should be considered dead.  Then, if
 /// a robot is considered dead the TimeoutCheckerNode will periodically send wake up commands
 /// until the robot wakes up.
-pub struct TimeoutCheckerNode<
-    SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>,
-    CS: OutputPin,
-    RESET: OutputPin,
-    DELAY: DelayMs<u8> + DelayUs<u8>,
-    ERR,
-> {
-    radio_publisher: RadioPublisher<SPI, CS, RESET, DELAY, ERR, ControlCommand>,
-    last_send_subscribers: Vec<LocalSubscriber<u128>>,
-    alive_robots: Vec<bool>,
-    team: Team,
+pub struct TimeoutCheckerNode<'a> {
     num_robots: u8,
     timeout_duration: u128,
+    alive_robots: Vec<bool>,
+    receive_message_subscriber: MappedLocalSubscriber<u8, u8>,
+    alive_robots_publisher: UdpPublisher<'a, u16, 2>,
+    alive_robots_intra_publisher: LocalPublisher<u16>,
 }
 
-impl<SPI, CS, RESET, DELAY, ERR> TimeoutCheckerNode<SPI, CS, RESET, DELAY, ERR>
-    where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin,
-    RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
+impl<'a> TimeoutCheckerNode<'a> {
     pub fn new(
-        radio_peripherals: Arc<Mutex<LoRa<SPI, CS, RESET, DELAY>>>,
-        last_send_subscribers: Vec<LocalSubscriber<u128>>,
-        team: Team,
         num_robots: u8,
-        timeout_duration: u128,
+        timeout: u128,
+        bind_address: &'a str,
+        send_address: &'a str,
+        receive_message_subscriber: MappedLocalSubscriber<u8, u8>
     ) -> Self {
-        let radio_publisher = RadioPublisher::new(radio_peripherals);
-        let mut alive_robots = Vec::with_capacity(num_robots as usize);
-        for _ in 0..num_robots {
-            alive_robots.push(false);
-        }
+        let alive_robots_publisher = UdpPublisher::new(bind_address, vec![send_address]);
+        let alive_robots = Vec::with_capacity(num_robots as usize);
+        let alive_robots_intra_publisher = LocalPublisher::new();
 
         Self {
-            radio_publisher,
-            last_send_subscribers,
-            alive_robots,
-            team,
             num_robots,
-            timeout_duration,
+            timeout_duration: timeout,
+            alive_robots,
+            receive_message_subscriber,
+            alive_robots_publisher,
+            alive_robots_intra_publisher,
         }
     }
 }
+impl<'a> Node for TimeoutCheckerNode<'a> {
+    fn name(&self) -> String { String::from("Timeout Checker Node") }
 
-impl<SPI, CS, RESET, DELAY, ERR> Node for TimeoutCheckerNode<SPI, CS, RESET, DELAY, ERR>
-    where SPI: Transfer<u8, Error = ERR> + Write<u8, Error = ERR>, CS: OutputPin,
-    RESET: OutputPin, DELAY: DelayMs<u8> + DelayUs<u8> {
-    fn name(&self) -> String { String::from("Timeout Checker") }
+    fn get_update_delay(&self) -> u128 { self.timeout_duration }
 
-    fn get_update_delay(&self) -> u128 { 100 }
-
-    // Wake Up The Robots
     fn start(&mut self) {
-        for robot_id in 0..self.num_robots {
-            self.radio_publisher.send(ControlCommand::wake_up(self.team, robot_id));
+        for _ in 0..self.num_robots {
+            self.alive_robots.push(true);
         }
     }
 
     fn update(&mut self) {
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        self.receive_message_subscriber.update_data();
 
-        for robot_id in 0..self.num_robots {
-            self.last_send_subscribers[robot_id as usize].update_data();
-
-            match self.last_send_subscribers[robot_id as usize].data {
-                Some(timestamp) => {
-                    let elapsed = current_time - timestamp;
-                    self.alive_robots[robot_id as usize] = elapsed <= self.timeout_duration;
-                },
-                None => self.alive_robots[robot_id as usize] = false,
+        // Update Alive Robots
+        let mut alive_robots = 0u16;
+        for i in 0..self.num_robots {
+            self.alive_robots[i as usize] = false;
+            if let Some(_) = self.receive_message_subscriber.data.get(&i) {
+                self.alive_robots[i as usize] = true;
+                alive_robots |= 1 << i;
+                self.receive_message_subscriber.data.remove(&i);
             }
         }
 
-        for robot_id in 0..self.num_robots {
-            if !self.alive_robots[robot_id as usize] {
-                self.radio_publisher.send(ControlCommand::wake_up(self.team, robot_id));
-            }
-        }
-
-        // TODO (Nathaniel Wert): Send alive robots to base computer
+        // Send Updated Alive Robots List
+        self.alive_robots_publisher.send(alive_robots);
+        self.alive_robots_intra_publisher.send(alive_robots);
     }
 
-    // Shutdown the robots
     fn shutdown(&mut self) {
-        for robot_id in 0..self.num_robots {
-            self.radio_publisher.send(ControlCommand::shut_down(self.team, robot_id));
-        }
+        self.alive_robots_publisher.send(0);
     }
 
     fn debug(&self) -> String {
-        format!(
-            "{}:{:?}",
-            self.name(),
-            self.alive_robots,
-        )
+        format!("{}: {:?}", self.name(), self.alive_robots)
     }
 }
