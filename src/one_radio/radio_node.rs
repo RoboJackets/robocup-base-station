@@ -18,12 +18,12 @@ use embedded_hal::digital::v2::OutputPin;
 use robojackets_robocup_rtp::control_message::{ControlMessage, ControlMessageBuilder, CONTROL_MESSAGE_SIZE};
 use robojackets_robocup_rtp::robot_status_message::RobotStatusMessage;
 use robojackets_robocup_rtp::Team;
+use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
 
 use rtic_nrf24l01::Radio;
 use rtic_nrf24l01::config::*;
 
 use crate::publishers::nrf_pubsub::NrfPublisherSubscriber;
-use crate::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
 
 pub struct RadioNode<
     'a,
