@@ -76,7 +76,7 @@ struct Args {
     pub timeout: u128,
 
     // The number of radios used by the base-station to communicate with the robots
-    #[arg(short, long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     pub two_radios: bool,
 }
 
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Acquire the peripherals
         let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
         let gpio = Gpio::new()?;
-        let csn = gpio.get(10)?.into_output();
+        let csn = gpio.get(8)?.into_output();
         let ce = gpio.get(22)?.into_output();
         let delay = Delay::new();
 

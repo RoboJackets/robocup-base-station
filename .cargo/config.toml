@@ -1,4 +1,4 @@
-[target.aarch64-unknown-linux-gnu]
+[target.armv7-unknown-linux-gnueabihf]
 
 [build]
-target = ["aarch64-unknown-linux-gnu"]
+target = ["armv7-unknown-linux-gnueabihf"]
