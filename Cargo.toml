@@ -15,7 +15,7 @@ version = "0.4.1"
 features = ["packed-struct"]
 
 [dependencies.robojackets-robocup-rtp]
-version = "0.2.2"
+version = "0.4.1"
 default_features = false
 features = ["std"]
 
@@ -29,3 +29,8 @@ features = ["derive"]
 
 [dependencies.rtic-nrf24l01]
 git = "https://github.com/N8BWert/rtic-nrf24l01.git"
+
+[features]
+default = []
+yellow-team = ["robojackets-robocup-rtp/yellow-team"]
+blue-team = ["robojackets-robocup-rtp/blue-team"]

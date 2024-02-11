@@ -16,7 +16,7 @@ use robocup_base_station::timeout_checker::TimeoutCheckerNode;
 
 use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 
-use robojackets_robocup_rtp::Team;
+use robojackets_robocup_rtp::TEAM;
 
 use clap::Parser;
 
@@ -50,19 +50,6 @@ struct Args {
     #[arg(default_value_t = String::from("0.0.0.0:8002"))]
     pub timeout_bind_address: String,
 
-    // is the blue team
-    // TODO (Nathaniel Wert): Combine Blue and Yellow to be a singular flag that parses the team
-    // color
-    #[arg(short, long, default_value_t = false)]
-    pub blue: bool,
-
-    // Boolean value to determine whether the team this base station is sending commands to
-    // is the yellow team
-    // TODO (Nathaniel Wert): Combine Blue and Yellow to be a singular flag that parses the team
-    // color
-    #[arg(short, long, default_value_t = false)]
-    pub yellow: bool,
-
     // The number of robots in play (most likely either 6 or 11)
     #[arg(short, long, default_value_t = 6)]
     pub robots: u8,
@@ -83,12 +70,6 @@ struct Args {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    // Parse the team
-    let team = match (args.blue, args.yellow) {
-        (true, _) | (false, false) => Team::Blue,
-        (false, true) => Team::Yellow,
-    };
-
     if args.two_radios {
         unimplemented!();
     } else {
@@ -101,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let publisher_send_address = format!("{}:{}", args.base_computer_address, args.base_computer_status_port);
         let mut radio_node = RadioNode::new(
-            team,
+            TEAM,
             args.robots,
             args.send_timeout_ms,
             ce,
