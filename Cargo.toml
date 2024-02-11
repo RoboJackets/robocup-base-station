@@ -9,7 +9,6 @@ edition = "2021"
 bitfield-struct = "0.5.4"
 embedded-hal = "0.2.7"
 packed_struct = "0.10.1"
-sx127 = { git = "https://github.com/N8BWert/sx127" }
 
 [dependencies.ncomm]
 version = "0.4.1"
@@ -30,4 +29,3 @@ features = ["derive"]
 
 [dependencies.rtic-nrf24l01]
 git = "https://github.com/N8BWert/rtic-nrf24l01.git"
-branch = "rewrite"

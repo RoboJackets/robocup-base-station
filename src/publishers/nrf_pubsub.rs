@@ -6,11 +6,9 @@ use std::marker::{Send, PhantomData};
 
 use ncomm::publisher_subscriber::{Publish, Receive};
 
-use packed_struct::types::bits::ByteArray;
 use packed_struct::PackedStruct;
 use packed_struct::PackedStructSlice;
 
-use rtic_nrf24l01::config::power_amplifier;
 use rtic_nrf24l01::Radio;
 
 use embedded_hal::blocking::spi::{Transfer, Write};
@@ -18,7 +16,7 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 use robojackets_robocup_rtp::control_message::{ControlMessage, CONTROL_MESSAGE_SIZE};
-use robojackets_robocup_rtp::robot_status_message::{RobotStatusMessage, RobotStatusMessageBuilder, ROBOT_STATUS_SIZE};
+use robojackets_robocup_rtp::robot_status_message::{RobotStatusMessage, ROBOT_STATUS_SIZE};
 
 use crate::ROBOT_RADIO_ADDRESSES;
 
