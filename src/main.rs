@@ -25,15 +25,15 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 struct Args {
     // The address of the base computer udp socket to publish robot status messages to
-    #[arg(required = true)]
+    #[arg(default_value_t = String::from("10.42.0.1"))]
     pub base_computer_address: String,
 
     // The port to send robot statuses to
-    #[arg(required = true)]
+    #[arg(default_value_t = 8000)]
     pub base_computer_status_port: u16,
 
     // The port to send the alive robots message to
-    #[arg(required = true)]
+    #[arg(default_value_t = 8001)]
     pub base_computer_alive_port: u16,
 
     // The address on the raspberry pi computer to bind the udp socket that is 
