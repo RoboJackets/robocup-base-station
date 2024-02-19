@@ -58,9 +58,9 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         csn: CSN,
         mut spi: SPI,
         mut delay: DELAY,
-        publisher_bind_address: &'a str,
-        publisher_send_addresses: &'a str,
-        subscriber_bind_address: &'a str,
+        control_message_bind_address: &'a str,
+        robot_status_bind_address: &'a str,
+        robot_status_send_address: &'a str,
     ) -> Self {
         let mut radio = Radio::new(ce, csn);
         if radio.begin(&mut spi, &mut delay).is_err() {
@@ -75,12 +75,15 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         radio.stop_listening(&mut spi, &mut delay);
 
         let control_message_subscriber = MappedPackedUdpSubscriber::new(
-            subscriber_bind_address,
+            control_message_bind_address,
             None,
             Arc::new(|message: &ControlMessage| { *message.robot_id })
         );
         let radio_publisher_subscriber = NrfPublisherSubscriber::new(radio, spi, delay);
-        let robot_status_publisher = PackedUdpPublisher::new(publisher_bind_address, vec![publisher_send_addresses]);
+        let robot_status_publisher = PackedUdpPublisher::new(
+            robot_status_bind_address,
+            vec![robot_status_send_address],
+        );
         let receive_message_publisher = LocalPublisher::new();
 
         Self {

@@ -23,11 +23,13 @@ impl<'a> TimeoutCheckerNode<'a> {
     pub fn new(
         num_robots: u8,
         timeout: u128,
-        bind_address: &'a str,
-        send_address: &'a str,
+        alive_robots_bind_address: &'a str,
+        alive_robots_send_address: &'a str,
         receive_message_subscriber: MappedLocalSubscriber<u8, u8>
     ) -> Self {
-        let alive_robots_publisher = UdpPublisher::new(bind_address, vec![send_address]);
+        let alive_robots_publisher = UdpPublisher::new(
+            alive_robots_bind_address,
+            vec![alive_robots_send_address]);
         let alive_robots = Vec::with_capacity(num_robots as usize);
         let alive_robots_intra_publisher = LocalPublisher::new();
 

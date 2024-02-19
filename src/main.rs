@@ -6,6 +6,11 @@
 //! 
 //! We will also be using 2 sx127 radios.
 //! 
+//! Communication with the Field Computer is as follows:
+//! (field::8000 -> 0.0.0.0:8000) - Field Sends Control Commands
+//! (0.0.0.0:8001 -> field::8001) - We Send Robot Statuses
+//! (0.0.0.0:8002 -> field::8002) - We Send Alive Robots
+//! 
 
 use std::error::Error;
 
@@ -24,31 +29,21 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    // The address of the base computer udp socket to publish robot status messages to
+    // The IPv4 Address of the Field Computer
     #[arg(default_value_t = String::from("10.42.0.1"))]
-    pub base_computer_address: String,
+    pub field_computer_address: String,
 
-    // The port to send robot statuses to
+    // Control Message Port
     #[arg(default_value_t = 8000)]
-    pub base_computer_status_port: u16,
+    pub control_message_port: u16,
 
-    // The port to send the alive robots message to
+    // Robot Status Port
     #[arg(default_value_t = 8001)]
-    pub base_computer_alive_port: u16,
+    pub robot_status_port: u16,
 
-    // The address on the raspberry pi computer to bind the udp socket that is 
-    // listening to incoming data from the base computer
-    #[arg(default_value_t = String::from("0.0.0.0:8000"))]
-    pub receive_bind_address: String,
-    
-    // The address on the raspberry pi computer to bind the udp socket that is
-    // sending data to the base computer
-    #[arg(default_value_t = String::from("0.0.0.0:8001"))]
-    pub send_bind_address: String,
-
-    // The address on this computer to bind the timeout checker to
-    #[arg(default_value_t = String::from("0.0.0.0:8002"))]
-    pub timeout_bind_address: String,
+    // Alive Robots Port
+    #[arg(default_value_t = 8002)]
+    pub alive_robots_port: u16,
 
     // The number of robots in play (most likely either 6 or 11)
     #[arg(short, long, default_value_t = 6)]
@@ -80,7 +75,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let ce = gpio.get(22)?.into_output();
         let delay = Delay::new();
 
-        let publisher_send_address = format!("{}:{}", args.base_computer_address, args.base_computer_status_port);
+        let control_message_bind_address = format!("0.0.0.0:{}", args.control_message_port);
+        // let control_message_send_address = format!("{}:{}", args.field_computer_address, args.control_message_port);
+        let robot_status_bind_address = format!("0.0.0.0:{}", args.robot_status_port);
+        let robot_status_send_address = format!("{}:{}", args.field_computer_address, args.robot_status_port);
+        let alive_robots_bind_address = format!("0.0.0.0:{}", args.alive_robots_port);
+        let alive_robots_send_address = format!("{}:{}", args.field_computer_address, args.alive_robots_port);
+
         let mut radio_node = RadioNode::new(
             TEAM,
             args.robots,
@@ -89,18 +90,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             csn,
             spi,
             delay,
-            &args.send_bind_address,
-            &publisher_send_address,
-            &args.receive_bind_address
+            &control_message_bind_address,
+            &robot_status_bind_address,
+            &robot_status_send_address,
         );
 
         let receive_message_subscriber = radio_node.create_subscriber();
-        let timeout_send_address = format!("{}:{}", args.base_computer_address, args.base_computer_alive_port);
         let mut timeout_node = TimeoutCheckerNode::new(
             args.robots,
             args.timeout,
-            &args.timeout_bind_address,
-            &timeout_send_address,
+            &alive_robots_bind_address,
+            &alive_robots_send_address,
             receive_message_subscriber,
         );
 
