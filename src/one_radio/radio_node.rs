@@ -110,25 +110,20 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         // Send Control Message
         self.radio_publisher_subscriber.send(control_message);
 
-        // On a successful send wait a few ms for a response from the robot
-        if self.radio_publisher_subscriber.send_status {
-            let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
-            while SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() - start_time < self.send_timeout_ms {
-                self.radio_publisher_subscriber.update_data();
+        while SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() - start_time < self.send_timeout_ms {
+            self.radio_publisher_subscriber.update_data();
 
-                if self.radio_publisher_subscriber.data.len() > 0 {
-                    for data in self.radio_publisher_subscriber.data.drain(..) {
-                        self.robot_status_publisher.send(data);
-                        self.receive_message_publisher.send(*data.robot_id);
-                    }
-                    break;
+            if self.radio_publisher_subscriber.data.len() > 0 {
+                for data in self.radio_publisher_subscriber.data.drain(..) {
+                    self.robot_status_publisher.send(data);
+                    self.receive_message_publisher.send(*data.robot_id);
                 }
-
-                thread::sleep(Duration::from_micros(500));
+                break;
             }
-        } else {
-            println!("Send Failed");
+
+            thread::sleep(Duration::from_micros(500));
         }
     }
 }
