@@ -30,6 +30,9 @@ features = ["derive"]
 [dependencies.rtic-nrf24l01]
 git = "https://github.com/N8BWert/rtic-nrf24l01.git"
 
+[dev-dependencies]
+rand = "0.8.5"
+
 [features]
 default = []
 yellow-team = ["robojackets-robocup-rtp/yellow-team"]
