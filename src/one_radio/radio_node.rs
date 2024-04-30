@@ -10,7 +10,7 @@ use std::sync::Arc;
 use ncomm::node::Node;
 use ncomm::publisher_subscriber::{Receive, Publish};
 use ncomm::publisher_subscriber::local::{LocalPublisher, LocalSubscriber, MappedLocalSubscriber};
-use ncomm::publisher_subscriber::packed_udp::{MappedPackedUdpSubscriber, PackedUdpPublisher};
+use ncomm::publisher_subscriber::packed_udp::{MappedPackedTimedUdpSubscriber, PackedUdpPublisher};
 
 use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
 use embedded_hal::digital::v2::OutputPin;
@@ -37,7 +37,7 @@ pub struct RadioNode<
     _team: Team,
     num_robots: u8,
     send_timeout_ms: u128,
-    control_message_subscriber: MappedPackedUdpSubscriber<ControlMessage, u8, 10>,
+    control_message_subscriber: MappedPackedTimedUdpSubscriber<ControlMessage, u8, 10>,
     radio_publisher_subscriber: NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE>,
     robot_status_publisher: PackedUdpPublisher<'a, RobotStatusMessage>,
     receive_message_publisher: LocalPublisher<u8>,
@@ -74,10 +74,11 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         delay.delay_ms(1_000);
         radio.stop_listening(&mut spi, &mut delay);
 
-        let control_message_subscriber = MappedPackedUdpSubscriber::new(
+        let control_message_subscriber = MappedPackedTimedUdpSubscriber::new(
             control_message_bind_address,
             None,
-            Arc::new(|message: &ControlMessage| { *message.robot_id })
+            Arc::new(|message: &ControlMessage| { *message.robot_id }),
+            500
         );
         let radio_publisher_subscriber = NrfPublisherSubscriber::new(radio, spi, delay);
         let robot_status_publisher = PackedUdpPublisher::new(
@@ -137,7 +138,7 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> Node for RadioNode<'a, SPI, CSN, CE, 
     fn name(&self) -> String { String::from("CPU --> Base Station --> Radio --> Base Station --> CPU")}
 
     // Tweak this value, but I think sending a wave of commands every 50 milliseconds is not bad
-    fn get_update_delay(&self) -> u128 { 100u128 }
+    fn get_update_delay(&self) -> u128 { 50u128 }
 
     fn start(&mut self) { }
 
@@ -146,11 +147,9 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> Node for RadioNode<'a, SPI, CSN, CE, 
 
         // For each robot, send them a control message and wait for a response
         for robot_id in 0..self.num_robots {
-            if let Some(control_message) = self.control_message_subscriber.data.get(&robot_id) {
-                println!("Sending Robot {}: {:?}", robot_id, control_message);
+            if let Some(control_message) = self.control_message_subscriber.get(&robot_id) {
                 self.send_and_await_response(*control_message);
             } else if let Some(subscriber) = self.alive_robots_intra_subscriber.as_ref() {
-                println!("No Data to Send to Robot {}", robot_id);
                 // The robot might be considered dead, but we should still check in with him.
                 if let Some(alive_robots) = subscriber.data {
                     if alive_robots & (1 << robot_id) == 0 {
