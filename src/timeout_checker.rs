@@ -68,6 +68,8 @@ impl<'a> Node for TimeoutCheckerNode<'a> {
             }
         }
 
+        println!("Alive Robots: {:#018b}", alive_robots);
+
         // Send Updated Alive Robots List
         self.alive_robots_publisher.send(alive_robots);
         self.alive_robots_intra_publisher.send(alive_robots);

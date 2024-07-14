@@ -23,6 +23,7 @@ fn ping_pong() {
     }
 
     radio.set_pa_level(power_amplifier::PowerAmplifier::PALow, &mut spi, &mut delay);
+    radio.set_channel(106, &mut spi, &mut delay);
 
     radio.set_payload_size(4, &mut spi, &mut delay);
 

@@ -26,7 +26,7 @@ const TOTAL_MESSAGES: usize = 100;
 // Delay Between Subsequent Packets
 const PACKET_DELAY_MS: u32 = 50;
 // Channel to Send Packets on
-const RF_CHANNEL: u8 = 0;
+const RF_CHANNEL: u8 = 106;
 
 #[test]
 /// Send TOTAL_MESSAGES packets at a delay of PACKET_DELAY_MS with a PA of
@@ -47,10 +47,8 @@ fn benchmark_radio_send() {
     radio.set_pa_level(PA_LEVEL, &mut spi, &mut delay);
     radio.set_channel(RF_CHANNEL, &mut spi, &mut delay);
     radio.set_payload_size(CONTROL_MESSAGE_SIZE as u8, &mut spi, &mut delay);
-    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0], &mut spi, &mut delay);
+    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[4], &mut spi, &mut delay);
     radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
-    radio.start_listening(&mut spi, &mut delay);
-    delay.delay_ms(1_000u32);
     radio.stop_listening(&mut spi, &mut delay);
 
     let mut acknowledged_packets = 0;

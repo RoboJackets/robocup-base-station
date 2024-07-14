@@ -21,9 +21,9 @@ use robojackets_robocup_rtp::Team;
 use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
 
 use rtic_nrf24l01::Radio;
-use rtic_nrf24l01::config::*;
 
 use crate::publishers::nrf_pubsub::NrfPublisherSubscriber;
+use crate::{BASE_AMPLIFICATION_LEVEL, CHANNEL};
 
 pub struct RadioNode<
     'a,
@@ -66,8 +66,9 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         if radio.begin(&mut spi, &mut delay).is_err() {
             panic!("Unable to Initialize the radio");
         }
-        radio.set_pa_level(power_amplifier::PowerAmplifier::PALow, &mut spi, &mut delay);
+        radio.set_pa_level(BASE_AMPLIFICATION_LEVEL, &mut spi, &mut delay);
         radio.set_payload_size(CONTROL_MESSAGE_SIZE as u8, &mut spi, &mut delay);
+        radio.set_channel(CHANNEL, &mut spi, &mut delay);
         radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0], &mut spi, &mut delay);
         radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
         radio.start_listening(&mut spi, &mut delay);
@@ -137,7 +138,7 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> Node for RadioNode<'a, SPI, CSN, CE, 
     fn name(&self) -> String { String::from("CPU --> Base Station --> Radio --> Base Station --> CPU")}
 
     // Tweak this value, but I think sending a wave of commands every 50 milliseconds is not bad
-    fn get_update_delay(&self) -> u128 { 100u128 }
+    fn get_update_delay(&self) -> u128 { 50u128 }
 
     fn start(&mut self) { }
 
@@ -147,12 +148,12 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> Node for RadioNode<'a, SPI, CSN, CE, 
         // For each robot, send them a control message and wait for a response
         for robot_id in 0..self.num_robots {
             if let Some(control_message) = self.control_message_subscriber.data.get(&robot_id) {
-                println!("Sending Robot {}: {:?}", robot_id, control_message);
                 self.send_and_await_response(*control_message);
             } else if let Some(subscriber) = self.alive_robots_intra_subscriber.as_ref() {
                 println!("No Data to Send to Robot {}", robot_id);
                 // The robot might be considered dead, but we should still check in with him.
                 if let Some(alive_robots) = subscriber.data {
+                    println!("Alive Robots: {:?}", alive_robots);
                     if alive_robots & (1 << robot_id) == 0 {
                         let blank_control_message = ControlMessageBuilder::new().build();
 

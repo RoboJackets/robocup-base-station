@@ -20,7 +20,7 @@ use packed_struct::{PackedStruct, PackedStructSlice};
 // Power Amplifier Level
 const PA_LEVEL: PowerAmplifier = PowerAmplifier::PALow;
 // Channel to Send Packets on
-const RF_CHANNEL: u8 = 0;
+const RF_CHANNEL: u8 = 15;
 
 #[test]
 /// Send Messages and wait for responses from the robot
@@ -59,9 +59,12 @@ fn test_robot_is_alive() {
             Err(err) => panic!("Unable to Pack Data: {:?}", err),
         };
 
-        for i in 0..5 {
+        for _ in 0..5 {
             radio.stop_listening(&mut spi, &mut delay);
-            let _ = radio.write(&packed_data, &mut spi, &mut delay);
+            let success = radio.write(&packed_data, &mut spi, &mut delay);
+            if success {
+                println!("Robot Acknowledged");
+            }
 
             radio.start_listening(&mut spi, &mut delay);
             
@@ -79,10 +82,6 @@ fn test_robot_is_alive() {
             }
 
             delay.delay_ms(10u32);
-
-            if i == 4 {
-                println!("No Data Received This Iteration");
-            }
         }
 
         delay.delay_ms(100u32);
