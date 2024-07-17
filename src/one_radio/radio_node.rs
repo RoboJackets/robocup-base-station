@@ -3,8 +3,7 @@
 //! communication for the robots.
 //! 
 
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use std::sync::Arc;
 
 use ncomm::node::Node;
@@ -34,9 +33,8 @@ pub struct RadioNode<
     SPIE,
     GPIOE,
 > {
-    _team: Team,
+    team: Team,
     num_robots: u8,
-    send_timeout_ms: u128,
     control_message_subscriber: MappedPackedUdpSubscriber<ControlMessage, u8, 10>,
     radio_publisher_subscriber: NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE>,
     robot_status_publisher: PackedUdpPublisher<'a, RobotStatusMessage>,
@@ -53,7 +51,6 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
     pub fn new(
         team: Team,
         num_robots: u8,
-        send_timeout_ms: u128,
         ce: CE,
         csn: CSN,
         mut spi: SPI,
@@ -88,9 +85,8 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         let receive_message_publisher = LocalPublisher::new();
 
         Self {
-            _team: team,
+            team: team,
             num_robots,
-            send_timeout_ms,
             control_message_subscriber,
             radio_publisher_subscriber,
             robot_status_publisher,
@@ -107,24 +103,22 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         self.alive_robots_intra_subscriber = Some(publisher);
     }
 
-    fn send_and_await_response(&mut self, control_message: ControlMessage) {
+    fn send_and_await_response(&mut self, control_message: ControlMessage, robot_id: u8) {
         // Send Control Message
         self.radio_publisher_subscriber.send(control_message);
 
-        let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-
-        while SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() - start_time < self.send_timeout_ms {
+        let start_instant = SystemTime::now();
+        while SystemTime::now().duration_since(start_instant).unwrap().as_nanos() < 3_000 {
             self.radio_publisher_subscriber.update_data();
-
             if self.radio_publisher_subscriber.data.len() > 0 {
                 for data in self.radio_publisher_subscriber.data.drain(..) {
                     self.robot_status_publisher.send(data);
                     self.receive_message_publisher.send(*data.robot_id);
+                    if *data.robot_id == robot_id {
+                        return;
+                    }
                 }
-                break;
             }
-
-            thread::sleep(Duration::from_micros(500));
         }
     }
 }
@@ -148,16 +142,16 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> Node for RadioNode<'a, SPI, CSN, CE, 
         // For each robot, send them a control message and wait for a response
         for robot_id in 0..self.num_robots {
             if let Some(control_message) = self.control_message_subscriber.data.get(&robot_id) {
-                self.send_and_await_response(*control_message);
+                self.send_and_await_response(*control_message, robot_id);
             } else if let Some(subscriber) = self.alive_robots_intra_subscriber.as_ref() {
-                println!("No Data to Send to Robot {}", robot_id);
                 // The robot might be considered dead, but we should still check in with him.
                 if let Some(alive_robots) = subscriber.data {
-                    println!("Alive Robots: {:?}", alive_robots);
                     if alive_robots & (1 << robot_id) == 0 {
-                        let blank_control_message = ControlMessageBuilder::new().build();
+                        let blank_control_message = ControlMessageBuilder::new()
+                            .team(self.team)
+                            .build();
 
-                        self.send_and_await_response(blank_control_message);
+                        self.send_and_await_response(blank_control_message, robot_id);
                     }
                 }
             }

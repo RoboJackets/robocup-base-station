@@ -12,9 +12,9 @@
 //! (0.0.0.0:8002 -> field::8002) - We Send Alive Robots
 //! 
 
-use std::error::Error;
+use std::{error::Error, sync::mpsc, thread::{self, spawn}, time::Duration};
 
-use ncomm::executor::{Executor, simple_multi_executor::SimpleMultiExecutor};
+use ncomm::node::Node;
 
 use robocup_base_station::one_radio::radio_node::RadioNode;
 use robocup_base_station::timeout_checker::TimeoutCheckerNode;
@@ -85,7 +85,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut radio_node = RadioNode::new(
             TEAM,
             args.robots,
-            args.send_timeout_ms,
             ce,
             csn,
             spi,
@@ -99,19 +98,31 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut timeout_node = TimeoutCheckerNode::new(
             args.robots,
             args.timeout,
-            &alive_robots_bind_address,
-            &alive_robots_send_address,
+            Box::leak(Box::new(alive_robots_bind_address)),
+            Box::leak(Box::new(alive_robots_send_address)),
             receive_message_subscriber,
         );
 
-        let mut executor = SimpleMultiExecutor::new_with(vec![
-            ("Radio", &mut radio_node),
-            ("Timeout", &mut timeout_node),
-        ]);
+        let (radio_tx, radio_rx) = mpsc::channel();
+        let (timeout_tx, timeout_rx) = mpsc::channel();
 
-        executor.start();
+        ctrlc::set_handler(move || {
+            let _ = radio_tx.send(true);
+            let _ = timeout_tx.send(true);
+        }).expect("Unable to set ctrl-c handler");
 
-        executor.update_loop();
+        let handle = spawn(move || {
+            while let Err(_) = timeout_rx.try_recv() {
+                timeout_node.update();
+                thread::sleep(Duration::from_millis(args.timeout as u64));
+            }
+        });
+
+        while let Err(_) = radio_rx.try_recv() {
+            radio_node.update();
+        }
+
+        handle.join().unwrap();
     }
 
     Ok(())
