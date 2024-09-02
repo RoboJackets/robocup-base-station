@@ -47,7 +47,7 @@ fn benchmark_radio_send() {
     radio.set_pa_level(PA_LEVEL, &mut spi, &mut delay);
     radio.set_channel(RF_CHANNEL, &mut spi, &mut delay);
     radio.set_payload_size(CONTROL_MESSAGE_SIZE as u8, &mut spi, &mut delay);
-    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[4], &mut spi, &mut delay);
+    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[5], &mut spi, &mut delay);
     radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
     radio.stop_listening(&mut spi, &mut delay);
 

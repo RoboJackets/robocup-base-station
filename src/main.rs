@@ -111,6 +111,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let _ = timeout_tx.send(true);
         }).expect("Unable to set ctrl-c handler");
 
+        radio_node.start();
+        timeout_node.start();
+
         let handle = spawn(move || {
             while let Err(_) = timeout_rx.try_recv() {
                 timeout_node.update();

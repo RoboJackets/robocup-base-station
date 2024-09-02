@@ -108,7 +108,7 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<'a, SPI, CSN, CE, DELAY, SP
         self.radio_publisher_subscriber.send(control_message);
 
         let start_instant = SystemTime::now();
-        while SystemTime::now().duration_since(start_instant).unwrap().as_nanos() < 3_000 {
+        while SystemTime::now().duration_since(start_instant).unwrap().as_millis() < 3 {
             self.radio_publisher_subscriber.update_data();
             if self.radio_publisher_subscriber.data.len() > 0 {
                 for data in self.radio_publisher_subscriber.data.drain(..) {
@@ -142,6 +142,9 @@ impl<'a, SPI, CSN, CE, DELAY, SPIE, GPIOE> Node for RadioNode<'a, SPI, CSN, CE, 
         // For each robot, send them a control message and wait for a response
         for robot_id in 0..self.num_robots {
             if let Some(control_message) = self.control_message_subscriber.data.get(&robot_id) {
+                if *control_message.body_y != 0 {
+                    println!("{:?}", control_message);
+                }
                 self.send_and_await_response(*control_message, robot_id);
             } else if let Some(subscriber) = self.alive_robots_intra_subscriber.as_ref() {
                 // The robot might be considered dead, but we should still check in with him.
