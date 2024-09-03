@@ -2,6 +2,8 @@ use rtic_nrf24l01::config::power_amplifier::PowerAmplifier;
 
 pub mod timeout_checker;
 
+pub mod xbox_node;
+
 // All Functionality Involving 1 Radio Communication
 pub mod one_radio;
 
