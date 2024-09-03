@@ -8,7 +8,7 @@ use rtic_nrf24l01::config::*;
 use packed_struct::PackedStruct;
 
 use robojackets_robocup_rtp::Team;
-use robojackets_robocup_rtp::control_message::{ControlMessage, ControlMessageBuilder, CONTROL_MESSAGE_SIZE, TriggerMode, ShootMode};
+use robojackets_robocup_rtp::control_message::{ControlMessageBuilder, CONTROL_MESSAGE_SIZE, TriggerMode, ShootMode};
 
 #[test]
 fn test_base_radio_send_hello() {
@@ -58,7 +58,7 @@ fn test_base_radio_send_hello() {
 
     let packed_data = match control_message.pack() {
         Ok(bytes) => bytes,
-        Err(err) => panic!("Unable to pack message"),
+        Err(_err) => panic!("Unable to pack message"),
     };
 
     let report = radio.write(&packed_data, &mut spi, &mut delay);

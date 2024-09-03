@@ -5,8 +5,7 @@ use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 use rtic_nrf24l01::Radio;
 use rtic_nrf24l01::config::*;
 
-#[test]
-fn ping_pong() {
+fn main() {
     let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap();
     let gpio = Gpio::new().unwrap();
     let csn = gpio.get(8).unwrap().into_output();
@@ -23,7 +22,6 @@ fn ping_pong() {
     }
 
     radio.set_pa_level(power_amplifier::PowerAmplifier::PALow, &mut spi, &mut delay);
-    radio.set_channel(106, &mut spi, &mut delay);
 
     radio.set_payload_size(4, &mut spi, &mut delay);
 
