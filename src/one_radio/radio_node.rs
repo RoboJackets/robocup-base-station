@@ -129,6 +129,7 @@ where
         robot_status_send_address: &'a str,
         xbox_control_subscriber: MappedLocalSubscriber<ControlMessage, u8>,
     ) -> Self {
+        println!("Initializing Manual Control");
         let mut radio = Radio::new(ce, csn);
         if radio.begin(&mut spi, &mut delay).is_err() {
             panic!("Unable to Initialize the radio");
@@ -218,6 +219,9 @@ where
 
     fn update(&mut self) {
         self.control_message_subscriber.update_data();
+        if let Some(xbox_subscriber) = self.xbox_control_subscriber.as_mut() {
+            xbox_subscriber.update_data();
+        }
 
         // For each robot, send them a control message and wait for a response
         for robot_id in 0..self.num_robots {
@@ -226,21 +230,18 @@ where
                     self.send_and_await_response(*control_message, robot_id);
                     continue;
                 }
-            }
-
-            if let Some(control_message) = self.control_message_subscriber.data.get(&robot_id) {
-                if *control_message.body_y != 0 {
-                    println!("{:?}", control_message);
-                }
-                self.send_and_await_response(*control_message, robot_id);
-            } else if let Some(subscriber) = self.alive_robots_intra_subscriber.as_ref() {
-                // The robot might be considered dead, but we should still check in with him.
-                if let Some(alive_robots) = subscriber.data {
-                    if alive_robots & (1 << robot_id) == 0 {
-                        let blank_control_message =
-                            ControlMessageBuilder::new().team(self.team).build();
-
-                        self.send_and_await_response(blank_control_message, robot_id);
+            } else {
+                if let Some(control_message) = self.control_message_subscriber.data.get(&robot_id) {
+                    self.send_and_await_response(*control_message, robot_id);
+                } else if let Some(subscriber) = self.alive_robots_intra_subscriber.as_ref() {
+                    // The robot might be considered dead, but we should still check in with him.
+                    if let Some(alive_robots) = subscriber.data {
+                        if alive_robots & (1 << robot_id) == 0 {
+                            let blank_control_message =
+                                ControlMessageBuilder::new().team(self.team).build();
+    
+                            self.send_and_await_response(blank_control_message, robot_id);
+                        }
                     }
                 }
             }

@@ -4,16 +4,14 @@
 //!
 
 use std::{
-    fs::{metadata, File},
-    io::Read,
-    sync::Arc,
+    fs::File, io::Read, sync::Arc
 };
 
 use ncomm::{
     node::Node,
     publisher_subscriber::{
         local::{LocalPublisher, MappedLocalSubscriber},
-        Publish, Subscribe,
+        Publish,
     },
 };
 
@@ -22,9 +20,11 @@ use robojackets_robocup_rtp::{
 };
 
 /// The maximum velocity the robot can be moving in the X or Y direction (m/s)
-pub const MAX_BODY_VELOCITY: f32 = 1.5;
+pub const MAX_BODY_VELOCITY: f32 = 1.0;
 /// The maximum velocity the robot can be turning in the w direction (rad/s)
-pub const MAX_TURN_VELOCITY: f32 = 1.5;
+pub const MAX_TURN_VELOCITY: f32 = 4.0;
+
+const XPAD_PACKET_LENGTH: usize = 120;
 
 /// Rust struct that is used to convert the inputs from controllers to usable inputs
 struct XboxControlCommand {
@@ -43,13 +43,35 @@ struct XboxControlCommand {
     pub lstick_y: i8,
     pub rstick_x: i8,
     pub rstick_y: i8,
-    pub gamepad_x: i8,
-    pub gamepad_y: i8,
+    pub dpad_up: bool,
+    pub dpad_right: bool,
+    pub dpad_down: bool,
+    pub dpad_left: bool,
 }
 
-impl From<&[u8; 32]> for XboxControlCommand {
-    fn from(value: &[u8; 32]) -> Self {
-        todo!()
+impl From<&[u8; XPAD_PACKET_LENGTH]> for XboxControlCommand {
+    fn from(value: &[u8; XPAD_PACKET_LENGTH]) -> Self {
+        Self {
+            a: value[4] == 1,
+            b: value[12] == 1,
+            x: value[20] == 1,
+            y: value[28] == 1,
+            start: value[60] == 1,
+            select: value[52] == 1,
+            xbox_button: value[68] == 1,
+            left_shoulder: value[36] == 1,
+            right_shoulder: value[44] == 1,
+            left_trigger: false,
+            right_trigger: false,
+            lstick_x: 0,
+            lstick_y: 0,
+            rstick_x: 0,
+            rstick_y: 0,
+            dpad_up: value[108] == 1,
+            dpad_right: value[100] == 1,
+            dpad_down: value[116] == 1,
+            dpad_left: value[92] == 1,
+        }
     }
 }
 
@@ -103,14 +125,26 @@ impl Node for XboxControlNode {
 
     fn update(&mut self) {
         if let Ok(mut file) = File::open("/dev/input/js0") {
-            let mut buffer = [0u8; 32];
+            let mut buffer = [0u8; XPAD_PACKET_LENGTH];
             if file.read(&mut buffer).is_ok() {
                 let xbox_command = XboxControlCommand::from(&buffer);
                 let control_message = ControlMessageBuilder::new()
                     .team(self.team)
                     .robot_id(0)
-                    .body_x((xbox_command.lstick_x as f32 / 128.0) * MAX_BODY_VELOCITY)
-                    .body_y((xbox_command.lstick_y as f32 / 128.0) * MAX_BODY_VELOCITY)
+                    .body_x(if xbox_command.dpad_right {
+                        MAX_BODY_VELOCITY
+                    } else if xbox_command.dpad_left {
+                        -MAX_BODY_VELOCITY
+                    } else {
+                        0.0
+                    })
+                    .body_y(if xbox_command.dpad_up {
+                        MAX_BODY_VELOCITY
+                    } else if xbox_command.dpad_down {
+                        -MAX_BODY_VELOCITY
+                    } else {
+                        0.0
+                    })
                     .body_w(if xbox_command.left_shoulder {
                         MAX_TURN_VELOCITY
                     } else if xbox_command.right_shoulder {
@@ -128,17 +162,35 @@ impl Node for XboxControlNode {
                     .build();
                 self.control_publisher.send(control_message);
             }
+        } else {
+            let control_message = ControlMessageBuilder::new()
+                .team(self.team)
+                .robot_id(0)
+                .build();
+            self.control_publisher.send(control_message); 
         }
 
         if let Ok(mut file) = File::open("/dev/input/js1") {
-            let mut buffer = [0u8; 32];
+            let mut buffer = [0u8; XPAD_PACKET_LENGTH];
             if file.read(&mut buffer).is_ok() {
                 let xbox_command = XboxControlCommand::from(&buffer);
                 let control_message = ControlMessageBuilder::new()
                     .team(self.team)
                     .robot_id(1)
-                    .body_x((xbox_command.lstick_x as f32 / 128.0) * MAX_BODY_VELOCITY)
-                    .body_y((xbox_command.lstick_y as f32 / 128.0) * MAX_BODY_VELOCITY)
+                    .body_x(if xbox_command.dpad_right {
+                        MAX_BODY_VELOCITY
+                    } else if xbox_command.dpad_left {
+                        -MAX_BODY_VELOCITY
+                    } else {
+                        0.0
+                    })
+                    .body_y(if xbox_command.dpad_up {
+                        MAX_BODY_VELOCITY
+                    } else if xbox_command.dpad_down {
+                        -MAX_BODY_VELOCITY
+                    } else {
+                        0.0
+                    })
                     .body_w(if xbox_command.left_shoulder {
                         MAX_TURN_VELOCITY
                     } else if xbox_command.right_shoulder {
@@ -156,6 +208,12 @@ impl Node for XboxControlNode {
                     .build();
                 self.control_publisher.send(control_message);
             }
+        } else {
+            let control_message = ControlMessageBuilder::new()
+                .team(self.team)
+                .robot_id(1)
+                .build();
+            self.control_publisher.send(control_message);
         }
     }
 
