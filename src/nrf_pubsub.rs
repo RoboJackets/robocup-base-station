@@ -2,12 +2,11 @@
 //! nRF24L01+ Radio Publisher and Receiver
 //! 
 
+use std::convert::Infallible;
 use std::marker::{Send, PhantomData};
 
-use ncomm::publisher_subscriber::{Publish, Receive};
-
-use packed_struct::PackedStruct;
-use packed_struct::PackedStructSlice;
+use ncomm::prelude::*;
+use ncomm::utils::packing::Packable;
 
 use rtic_nrf24l01::Radio;
 
@@ -17,7 +16,7 @@ use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 use robojackets_robocup_rtp::{ControlMessage, CONTROL_MESSAGE_SIZE};
 use robojackets_robocup_rtp::{RobotStatusMessage, ROBOT_STATUS_SIZE};
-use robojackets_robocup_rtp::{ROBOT_RADIO_ADDRESSES};
+use robojackets_robocup_rtp::ROBOT_RADIO_ADDRESSES;
 
 pub struct NrfPublisherSubscriber<
     SPI: Transfer<u8, Error=SPIE> + Write<u8, Error=SPIE>,
@@ -53,19 +52,20 @@ impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> NrfPublisherSubscriber<SPI, CSN, CE, DELA
     }
 }
 
-impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> Publish<ControlMessage> for NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE> where
+impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> Publisher for NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE> where
     SPI: Transfer<u8, Error=SPIE> + Write<u8, Error=SPIE>,
     CSN: OutputPin<Error=GPIOE>,
     CE: OutputPin<Error=GPIOE>,
     DELAY: DelayMs<u32> + DelayUs<u32>,
 {
-    fn send(&mut self, data: ControlMessage) {
-        let target_robot = *data.robot_id;
+    type Data = ControlMessage;
+    type Error = Infallible;
 
-        let packed_data = match data.pack() {
-            Ok(bytes) => bytes,
-            Err(err) => panic!("Unable to Pack Data: {:?}", err),
-        };
+    fn publish(&mut self, data: Self::Data) -> Result<(), Self::Error> {
+        let target_robot = data.robot_id;
+
+        let mut buffer = vec![0u8; ControlMessage::len()];
+        data.pack(&mut buffer).unwrap();
 
         // Configure Radio
         self.radio.stop_listening(&mut self.spi, &mut self.delay);
@@ -73,29 +73,32 @@ impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> Publish<ControlMessage> for NrfPublisherS
         self.radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[target_robot as usize], &mut self.spi, &mut self.delay);
 
         // Send Data
-        self.send_status = self.radio.write(&packed_data, &mut self.spi, &mut self.delay);
+        self.send_status = self.radio.write(&buffer, &mut self.spi, &mut self.delay);
 
         // Get Ready For Listening
         self.radio.start_listening(&mut self.spi, &mut self.delay);
         self.radio.set_payload_size(ROBOT_STATUS_SIZE as u8, &mut self.spi, &mut self.delay);
+
+        Ok(())
     }
 }
 
-impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> Receive for NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE> where
+impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> Subscriber for NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE> where
     SPI: Transfer<u8, Error=SPIE> + Write<u8, Error=SPIE>,
     CSN: OutputPin<Error=GPIOE>,
     CE: OutputPin<Error=GPIOE>,
     DELAY: DelayMs<u32> + DelayUs<u32>
 {
-    fn update_data(&mut self) {
+    type Target = Vec<RobotStatusMessage>;
+
+    fn get(&mut self) -> &Self::Target {
         while self.radio.available(&mut self.spi, &mut self.delay) {
             let mut buffer = [0u8; ROBOT_STATUS_SIZE];
             self.radio.read(&mut buffer, &mut self.spi, &mut self.delay);
-            match RobotStatusMessage::unpack_from_slice(&buffer[..]) {
-                Ok(data) => self.data.push(data),
-                _ => return,
-            }
+            let data = RobotStatusMessage::unpack(&buffer).unwrap();
+            self.data.push(data);
         }
+        &self.data
     }
 }
 

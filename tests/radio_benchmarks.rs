@@ -15,7 +15,7 @@ use robojackets_robocup_rtp::robot_status_message::{RobotStatusMessage, ROBOT_ST
 use robojackets_robocup_rtp::Team;
 use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
 
-use packed_struct::{PackedStruct, PackedStructSlice};
+use ncomm::utils::packing::Packable;
 
 use rand::random;
 
@@ -61,10 +61,8 @@ fn benchmark_radio_send() {
             .body_w(random())
             .build();
 
-        let packed_data = match control_message.pack() {
-            Ok(bytes) => bytes,
-            Err(err) => panic!("Unable to Pack Data: {:?}", err),
-        };
+        let mut packed_data = vec![0u8; CONTROL_MESSAGE_SIZE];
+        control_message.pack(&mut packed_data).unwrap();
 
         let acknowledged = radio.write(&packed_data, &mut spi, &mut delay);
 
@@ -103,10 +101,8 @@ fn benchmark_radio_receive() {
             let mut buffer = [0u8; ROBOT_STATUS_SIZE];
             radio.read(&mut buffer, &mut spi, &mut delay);
 
-            match RobotStatusMessage::unpack_from_slice(&buffer[..]) {
-                Ok(data) => println!("Received: {:?}", data),
-                Err(err) => println!("Unable to Unpack Data: {:?}", err),
-            }
+            let data = RobotStatusMessage::unpack(&buffer).unwrap();
+            println!("Received: {:?}", data);
 
             radio.flush_rx(&mut spi, &mut delay);
         }

@@ -5,10 +5,10 @@ use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 use rtic_nrf24l01::Radio;
 use rtic_nrf24l01::config::*;
 
-use packed_struct::PackedStruct;
-
 use robojackets_robocup_rtp::Team;
 use robojackets_robocup_rtp::control_message::{ControlMessageBuilder, CONTROL_MESSAGE_SIZE, TriggerMode, ShootMode};
+
+use ncomm::utils::packing::Packable;
 
 #[test]
 fn test_base_radio_send_hello() {
@@ -56,12 +56,10 @@ fn test_base_radio_send_hello() {
         .role(1)
         .build();
 
-    let packed_data = match control_message.pack() {
-        Ok(bytes) => bytes,
-        Err(_err) => panic!("Unable to pack message"),
-    };
+    let mut buffer = vec![0u8; CONTROL_MESSAGE_SIZE];
+    control_message.pack(&mut buffer).unwrap();
 
-    let report = radio.write(&packed_data, &mut spi, &mut delay);
+    let report = radio.write(&buffer, &mut spi, &mut delay);
 
     if report {
         println!("Successfully sent report");

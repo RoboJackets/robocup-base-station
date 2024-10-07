@@ -9,16 +9,8 @@ edition = "2021"
 bitfield-struct = "0.5.4"
 ctrlc = "3.4.4"
 embedded-hal = "0.2.7"
-packed_struct = "0.10.1"
-
-[dependencies.ncomm]
-version = "0.4.1"
-features = ["packed-struct"]
-
-[dependencies.robojackets-robocup-rtp]
-version = "0.4.1"
-default_features = false
-features = ["std"]
+ncomm = "1.1.4"
+robojackets-robocup-rtp = "0.5.1"
 
 [dependencies.rppal]
 version = "0.14.1"

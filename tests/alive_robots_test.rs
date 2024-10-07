@@ -15,7 +15,7 @@ use robojackets_robocup_rtp::robot_status_message::{RobotStatusMessage, ROBOT_ST
 use robojackets_robocup_rtp::Team;
 use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
 
-use packed_struct::{PackedStruct, PackedStructSlice};
+use ncomm::utils::packing::Packable;
 
 // Power Amplifier Level
 const PA_LEVEL: PowerAmplifier = PowerAmplifier::PALow;
@@ -54,10 +54,8 @@ fn test_robot_is_alive() {
             .body_w(0.0)
             .build();
 
-        let packed_data = match control_message.pack() {
-            Ok(bytes) => bytes,
-            Err(err) => panic!("Unable to Pack Data: {:?}", err),
-        };
+        let mut packed_data = vec![0u8; CONTROL_MESSAGE_SIZE];
+        control_message.pack(&mut packed_data[..]).unwrap();
 
         for _ in 0..5 {
             radio.stop_listening(&mut spi, &mut delay);
@@ -72,10 +70,8 @@ fn test_robot_is_alive() {
                 let mut buffer = [0u8; ROBOT_STATUS_SIZE];
                 radio.read_payload(&mut buffer, &mut spi, &mut delay);
 
-                match RobotStatusMessage::unpack_from_slice(&buffer[..]) {
-                    Ok(data) => println!("Received: {:?}", data),
-                    Err(err) => println!("Unable to Unpack Data: {:?}", err),
-                }
+               let data = RobotStatusMessage::unpack(&buffer).unwrap();
+               println!("Received: {:?}", data);
 
                 radio.flush_rx(&mut spi, &mut delay);
                 break;

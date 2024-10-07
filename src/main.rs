@@ -14,10 +14,8 @@
 
 use std::{error::Error, sync::mpsc, thread::{self, spawn}, time::Duration};
 
-use ncomm::node::Node;
-
-use robocup_base_station::one_radio::radio_node::RadioNode;
-use robocup_base_station::timeout_checker::TimeoutCheckerNode;
+use ncomm::prelude::*;
+use robocup_base_station::{timeout_checker::TimeoutCheckerNode, radio_node::RadioNode};
 
 use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
 
@@ -89,17 +87,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             csn,
             spi,
             delay,
-            &control_message_bind_address,
-            &robot_status_bind_address,
-            &robot_status_send_address,
+            control_message_bind_address,
+            robot_status_bind_address,
+            robot_status_send_address,
         );
 
         let receive_message_subscriber = radio_node.create_subscriber();
         let mut timeout_node = TimeoutCheckerNode::new(
             args.robots,
             args.timeout,
-            Box::leak(Box::new(alive_robots_bind_address)),
-            Box::leak(Box::new(alive_robots_send_address)),
+            alive_robots_bind_address,
+            alive_robots_send_address,
             receive_message_subscriber,
         );
 

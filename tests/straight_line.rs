@@ -13,7 +13,7 @@ use robojackets_robocup_rtp::control_message::{ControlMessageBuilder, CONTROL_ME
 use robojackets_robocup_rtp::Team;
 use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
 
-use packed_struct::PackedStruct;
+use ncomm::utils::packing::Packable;
 
 #[test]
 fn straight_line_test() {
@@ -45,11 +45,9 @@ fn straight_line_test() {
             .body_y(1.0)
             .body_w(0.0)
             .build();
-        
-        let packed_data = match control_message.pack() {
-            Ok(bytes) => bytes,
-            Err(err) => panic!("Unable to Pack Data: {:?}", err),
-        };
+
+        let mut packed_data = [0u8; CONTROL_MESSAGE_SIZE];
+        control_message.pack(&mut packed_data).unwrap();
 
         let ack = radio.write(&packed_data, &mut spi, &mut delay);
         if !ack {
@@ -69,10 +67,8 @@ fn straight_line_test() {
         .body_w(0.0)
         .build();
 
-    let packed_data = match control_message.pack() {
-        Ok(bytes) => bytes,
-        Err(err) => panic!("Unable to Pack Data: {:?}", err),
-    };
+    let mut packed_data = [0u8; CONTROL_MESSAGE_SIZE];
+    control_message.pack(&mut packed_data).unwrap();
 
     let _ = radio.write(&packed_data, &mut spi, &mut delay);
     radio.flush_tx(&mut spi, &mut delay);
