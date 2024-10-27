@@ -9,10 +9,14 @@ pub mod radio_node;
 pub mod nrf_pubsub;
 
 // PIN DEFINITIONS
-/// Chip Select (CSN) for the Radio
-pub const RADIO_CSN: u8 = 8;
-/// Chip Enable (CE) for the Radio
-pub const RADIO_CE: u8 = 22;
+/// Chip Select (CSN) for the first Radio
+pub const RADIO_ONE_CSN: u8 = 8;
+/// Chip Enable (CE) for the second Radio
+pub const RADIO_ONE_CE: u8 = 22;
+/// Chip Select (CSN) for the second Radio
+pub const RADIO_TWO_CSN: u8 = 10;
+/// Chip Enable (CE) for the second Radio
+pub const RADIO_TWO_CE: u8 = 11;
 /// Radio Interrupt (IRQ) Pin
 pub const RADIO_IRQ: u8 = 25;
 

@@ -2,10 +2,10 @@
 //! Various Benchmarks for the Radio
 //! 
 
-use embedded_hal::blocking::delay::DelayMs;
-use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
+use embedded_hal::delay::DelayNs;
+use rppal::{gpio::Gpio, hal::Delay, spi::{Bus, Mode, SimpleHalSpiDevice, SlaveSelect, Spi}};
 
-use robocup_base_station::{RADIO_CSN, RADIO_CE};
+use robocup_base_station::{RADIO_ONE_CSN, RADIO_ONE_CE};
 
 use rtic_nrf24l01::Radio;
 use rtic_nrf24l01::config::*;
@@ -13,7 +13,7 @@ use rtic_nrf24l01::config::*;
 use robojackets_robocup_rtp::control_message::{ControlMessageBuilder, CONTROL_MESSAGE_SIZE};
 use robojackets_robocup_rtp::robot_status_message::{RobotStatusMessage, ROBOT_STATUS_SIZE};
 use robojackets_robocup_rtp::Team;
-use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
+use robojackets_robocup_rtp::{BASE_STATION_ADDRESSES, ROBOT_RADIO_ADDRESSES};
 
 use ncomm::utils::packing::Packable;
 
@@ -33,10 +33,10 @@ const RF_CHANNEL: u8 = 106;
 /// PA_LEVEL over the channel RF_CHANNEL recording the number of packets that
 /// are acknowledged by the receiver.
 fn benchmark_radio_send() {
-    let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap();
+    let mut spi = SimpleHalSpiDevice::new(Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap());
     let gpio = Gpio::new().unwrap();
-    let csn = gpio.get(RADIO_CSN).unwrap().into_output();
-    let ce = gpio.get(RADIO_CE).unwrap().into_output();
+    let csn = gpio.get(RADIO_ONE_CSN).unwrap().into_output();
+    let ce = gpio.get(RADIO_ONE_CE).unwrap().into_output();
     let mut delay = Delay::new();
 
     let mut radio = Radio::new(ce, csn);
@@ -47,8 +47,8 @@ fn benchmark_radio_send() {
     radio.set_pa_level(PA_LEVEL, &mut spi, &mut delay);
     radio.set_channel(RF_CHANNEL, &mut spi, &mut delay);
     radio.set_payload_size(CONTROL_MESSAGE_SIZE as u8, &mut spi, &mut delay);
-    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[5], &mut spi, &mut delay);
-    radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
+    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0][5], &mut spi, &mut delay);
+    radio.open_reading_pipe(1, BASE_STATION_ADDRESSES[0], &mut spi, &mut delay);
     radio.stop_listening(&mut spi, &mut delay);
 
     let mut acknowledged_packets = 0;
@@ -80,11 +80,11 @@ fn benchmark_radio_send() {
 #[test]
 /// Receive Constantly Checking for new Data every PACKET_DELAY_MS
 fn benchmark_radio_receive() {
-    let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)
-        .expect("Unable to Acquire SPI Peripherals");
+    let mut spi = SimpleHalSpiDevice::new(Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)
+        .expect("Unable to Acquire SPI Peripherals"));
     let gpio = Gpio::new().expect("Unable to Acquire GPIO Peripherals");
-    let csn = gpio.get(RADIO_CSN).expect("Unable to get Radio CNS").into_output();
-    let ce = gpio.get(RADIO_CE).expect("Unable to Get Radio CE").into_output();
+    let csn = gpio.get(RADIO_ONE_CSN).expect("Unable to get Radio CNS").into_output();
+    let ce = gpio.get(RADIO_ONE_CE).expect("Unable to Get Radio CE").into_output();
     let mut delay = Delay::new();
 
     let mut radio = Radio::new(ce, csn);
@@ -92,8 +92,8 @@ fn benchmark_radio_receive() {
     radio.set_pa_level(PA_LEVEL, &mut spi, &mut delay);
     radio.set_channel(RF_CHANNEL, &mut spi, &mut delay);
     radio.set_payload_size(ROBOT_STATUS_SIZE as u8, &mut spi, &mut delay);
-    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0], &mut spi, &mut delay);
-    radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
+    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0][0], &mut spi, &mut delay);
+    radio.open_reading_pipe(1, BASE_STATION_ADDRESSES[0], &mut spi, &mut delay);
     radio.start_listening(&mut spi, &mut delay);
 
     loop {

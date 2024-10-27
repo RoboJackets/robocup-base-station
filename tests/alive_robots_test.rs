@@ -2,10 +2,10 @@
 //! Test that a robot is alive by sending and receiving a packet from it
 //! 
 
-use embedded_hal::blocking::delay::DelayMs;
-use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
+use embedded_hal::delay::DelayNs;
+use rppal::{gpio::Gpio, hal::Delay, spi::{Bus, Mode, SimpleHalSpiDevice, SlaveSelect, Spi}};
 
-use robocup_base_station::{RADIO_CSN, RADIO_CE};
+use robocup_base_station::{RADIO_ONE_CSN, RADIO_ONE_CE};
 
 use rtic_nrf24l01::Radio;
 use rtic_nrf24l01::config::power_amplifier::PowerAmplifier;
@@ -13,7 +13,7 @@ use rtic_nrf24l01::config::power_amplifier::PowerAmplifier;
 use robojackets_robocup_rtp::control_message::{ControlMessageBuilder, CONTROL_MESSAGE_SIZE};
 use robojackets_robocup_rtp::robot_status_message::{RobotStatusMessage, ROBOT_STATUS_SIZE};
 use robojackets_robocup_rtp::Team;
-use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
+use robojackets_robocup_rtp::{BASE_STATION_ADDRESSES, ROBOT_RADIO_ADDRESSES};
 
 use ncomm::utils::packing::Packable;
 
@@ -25,10 +25,10 @@ const RF_CHANNEL: u8 = 15;
 #[test]
 /// Send Messages and wait for responses from the robot
 fn test_robot_is_alive() {
-    let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap();
+    let mut spi = SimpleHalSpiDevice::new(Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap());
     let gpio = Gpio::new().unwrap();
-    let csn = gpio.get(RADIO_CSN).unwrap().into_output();
-    let ce = gpio.get(RADIO_CE).unwrap().into_output();
+    let csn = gpio.get(RADIO_ONE_CSN).unwrap().into_output();
+    let ce = gpio.get(RADIO_ONE_CE).unwrap().into_output();
     let mut delay = Delay::new();
 
     let mut radio = Radio::new(ce, csn);
@@ -39,8 +39,8 @@ fn test_robot_is_alive() {
     radio.set_pa_level(PA_LEVEL, &mut spi, &mut delay);
     radio.set_channel(RF_CHANNEL, &mut spi, &mut delay);
     radio.set_payload_size(CONTROL_MESSAGE_SIZE as u8, &mut spi, &mut delay);
-    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0], &mut spi, &mut delay);
-    radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
+    radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0][0], &mut spi, &mut delay);
+    radio.open_reading_pipe(1, BASE_STATION_ADDRESSES[0], &mut spi, &mut delay);
     radio.start_listening(&mut spi, &mut delay);
     delay.delay_ms(1_000u32);
     radio.stop_listening(&mut spi, &mut delay);

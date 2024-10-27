@@ -6,18 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitfield-struct = "0.5.4"
-ctrlc = "3.4.4"
-embedded-hal = "0.2.7"
+crossbeam = "0.8.4"
+ctrlc = "3.4.5"
+embedded-hal = "1.0.0"
 ncomm = "1.1.4"
-robojackets-robocup-rtp = "0.5.1"
+quanta = "0.12.3"
+robojackets-robocup-rtp = "0.6.3"
 
 [dependencies.rppal]
-version = "0.14.1"
+version = "0.19.0"
 features = ["hal"]
 
 [dependencies.clap]
-version = "4.4.4"
+version = "4.5.20"
 features = ["derive"]
 
 [dependencies.rtic-nrf24l01]
@@ -28,5 +29,3 @@ rand = "0.8.5"
 
 [features]
 default = []
-yellow-team = ["robojackets-robocup-rtp/yellow-team"]
-blue-team = ["robojackets-robocup-rtp/blue-team"]

@@ -4,22 +4,25 @@
 //! 1. Receive commands from the Field Computer and forward said commands to the robots
 //! 2. Receive information from the Robots and forward alive robot information to the base computer
 //! 
-//! We will also be using 2 sx127 radios.
+//! We will also be using 2 nRF24L01+ radios in the future.
 //! 
 //! Communication with the Field Computer is as follows:
 //! (field::8000 -> 0.0.0.0:8000) - Field Sends Control Commands
-//! (0.0.0.0:8001 -> field::8001) - We Send Robot Statuses
-//! (0.0.0.0:8002 -> field::8002) - We Send Alive Robots
+//! (0.0.0.0:8001 -> field:8001) - We Send Robot Statuses
+//! (0.0.0.0:8002 -> field:8002) - We Send Alive Robots
 //! 
 
-use std::{error::Error, sync::mpsc, thread::{self, spawn}, time::Duration};
+use std::error::Error;
 
 use ncomm::prelude::*;
+use ncomm::executors::ThreadedExecutor;
+
 use robocup_base_station::{timeout_checker::TimeoutCheckerNode, radio_node::RadioNode};
 
-use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
+use robojackets_robocup_rtp::Team;
+use rppal::gpio::Gpio;
 
-use robojackets_robocup_rtp::TEAM;
+use crossbeam::channel::unbounded;
 
 use clap::Parser;
 
@@ -58,73 +61,68 @@ struct Args {
     // The number of radios used by the base-station to communicate with the robots
     #[arg(long, default_value_t = false)]
     pub two_radios: bool,
+
+    // Should we be running the blue team
+    #[arg(short, long, default_value_t = true)]
+    pub blue: bool,
+
+    // Should we be running the yellow team
+    #[arg(short, long, default_value_t = false)]
+    pub yellow: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    if args.two_radios {
-        unimplemented!();
+    let team = if args.yellow {
+        Team::Yellow
     } else {
-        // Acquire the peripherals
-        let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0)?;
-        let gpio = Gpio::new()?;
-        let csn = gpio.get(8)?.into_output();
-        let ce = gpio.get(22)?.into_output();
-        let delay = Delay::new();
+        Team::Blue
+    };
 
-        let control_message_bind_address = format!("0.0.0.0:{}", args.control_message_port);
-        // let control_message_send_address = format!("{}:{}", args.field_computer_address, args.control_message_port);
-        let robot_status_bind_address = format!("0.0.0.0:{}", args.robot_status_port);
-        let robot_status_send_address = format!("{}:{}", args.field_computer_address, args.robot_status_port);
-        let alive_robots_bind_address = format!("0.0.0.0:{}", args.alive_robots_port);
-        let alive_robots_send_address = format!("{}:{}", args.field_computer_address, args.alive_robots_port);
+    let mut gpio = Gpio::new()?;
 
-        let mut radio_node = RadioNode::new(
-            TEAM,
-            args.robots,
-            ce,
-            csn,
-            spi,
-            delay,
-            control_message_bind_address,
-            robot_status_bind_address,
-            robot_status_send_address,
-        );
+    let control_message_bind_address = format!("0.0.0.0:{}", args.control_message_port);
+    let robot_status_bind_address = format!("0.0.0.0:{}", args.robot_status_port);
+    let robot_status_send_address = format!("{}:{}", args.field_computer_address, args.robot_status_port);
+    let alive_robots_bind_address = format!("0.0.0.0:{}", args.alive_robots_port);
+    let alive_robots_send_address = format!("{}:{}", args.field_computer_address, args.alive_robots_port);
 
-        let receive_message_subscriber = radio_node.create_subscriber();
-        let mut timeout_node = TimeoutCheckerNode::new(
-            args.robots,
-            args.timeout,
-            alive_robots_bind_address,
-            alive_robots_send_address,
-            receive_message_subscriber,
-        );
+    let mut radio_node = RadioNode::new(
+        team,
+        0,
+        args.robots,
+        control_message_bind_address,
+        robot_status_bind_address,
+        robot_status_send_address,
+        &mut gpio,
+    );
 
-        let (radio_tx, radio_rx) = mpsc::channel();
-        let (timeout_tx, timeout_rx) = mpsc::channel();
+    let timeout_node = TimeoutCheckerNode::new(
+        args.robots,
+        args.timeout,
+        alive_robots_bind_address,
+        alive_robots_send_address,
+        radio_node.create_subscriber(),
+    );
 
-        ctrlc::set_handler(move || {
-            let _ = radio_tx.send(true);
-            let _ = timeout_tx.send(true);
-        }).expect("Unable to set ctrl-c handler");
+    let (interrupt_tx, interrupt_rx) = unbounded();
 
-        radio_node.start();
-        timeout_node.start();
+    ctrlc::set_handler(move || {
+        interrupt_tx.send(true).unwrap();
+    }).expect("Unable to set ctrl-c handler");
 
-        let handle = spawn(move || {
-            while let Err(_) = timeout_rx.try_recv() {
-                timeout_node.update();
-                thread::sleep(Duration::from_millis(args.timeout as u64));
-            }
-        });
+    let mut executor = ThreadedExecutor::new_with(
+        interrupt_rx,
+        0,
+        vec![
+            (vec![Box::new(radio_node)], 1),
+            (vec![Box::new(timeout_node)], 2),
+        ]
+    );
 
-        while let Err(_) = radio_rx.try_recv() {
-            radio_node.update();
-        }
-
-        handle.join().unwrap();
-    }
+    executor.start();
+    executor.update_loop();
 
     Ok(())
 }

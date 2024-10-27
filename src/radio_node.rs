@@ -5,23 +5,23 @@
 
 use super::NodeIdentifier;
 
-use std::time::SystemTime;
+use std::convert::Infallible;
 
 use ncomm::prelude::*;
 use ncomm::pubsubs::{local::{LocalPublisher, LocalSubscriber, LocalMappedSubscriber}, udp::{UdpMappedSubscriber, UdpPublisher}};
 
-use embedded_hal::blocking::{spi::{Transfer, Write}, delay::{DelayMs, DelayUs}};
-use embedded_hal::digital::v2::OutputPin;
+use robojackets_robocup_rtp::{
+    ControlMessage, ControlMessageBuilder, RobotStatusMessage, Team
+};
 
-use robojackets_robocup_rtp::control_message::{ControlMessage, ControlMessageBuilder, CONTROL_MESSAGE_SIZE};
-use robojackets_robocup_rtp::robot_status_message::RobotStatusMessage;
-use robojackets_robocup_rtp::Team;
-use robojackets_robocup_rtp::{BASE_STATION_ADDRESS, ROBOT_RADIO_ADDRESSES};
+use rppal::gpio::Gpio;
+use rppal::{
+    spi::{self, SimpleHalSpiDevice, Spi},
+    gpio::OutputPin,
+};
 
-use rtic_nrf24l01::Radio;
-
-use crate::nrf_pubsub::NrfPublisherSubscriber;
-use crate::{BASE_AMPLIFICATION_LEVEL, CHANNEL};
+use crate::nrf_pubsub::{IncomingMessage, NrfPublisherSubscriber, Packet};
+use crate::{RADIO_ONE_CE, RADIO_ONE_CSN, RADIO_TWO_CE, RADIO_TWO_CSN};
 
 pub fn id_from_message(message: &ControlMessage) -> u8 {
     message.robot_id
@@ -31,58 +31,45 @@ pub fn subscriber_map(data: &Option<u8>) -> u8 {
     data.unwrap_or_default()
 }
 
-pub struct RadioNode<
-    SPI: Transfer<u8, Error=SPIE> + Write<u8, Error=SPIE>,
-    CSN: OutputPin<Error=GPIOE>,
-    CE: OutputPin<Error=GPIOE>,
-    DELAY: DelayMs<u32> + DelayUs<u32>,
-    SPIE,
-    GPIOE,
-> {
+pub struct RadioNode {
     team: Team,
     num_robots: u8,
     control_message_subscriber: UdpMappedSubscriber<ControlMessage, u8, fn(&ControlMessage) -> u8>,
-    radio_publisher_subscriber: NrfPublisherSubscriber<SPI, CSN, CE, DELAY, SPIE, GPIOE>,
+    radio_publisher_subscriber: NrfPublisherSubscriber<SimpleHalSpiDevice<Spi>, OutputPin, OutputPin, Infallible, spi::Error>,
     robot_status_publisher: UdpPublisher<RobotStatusMessage>,
     receive_message_publisher: LocalPublisher<u8>,
     alive_robots_intra_subscriber: Option<LocalSubscriber<u16>>,
 }
 
-impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<SPI, CSN, CE, DELAY, SPIE, GPIOE> where
-    SPI: Transfer<u8, Error=SPIE> + Write<u8, Error=SPIE>,
-    CSN: OutputPin<Error=GPIOE>,
-    CE: OutputPin<Error=GPIOE>,
-    DELAY: DelayMs<u32> + DelayUs<u32>,
-{
+impl RadioNode {
     pub fn new(
         team: Team,
+        radio_number: u8,
         num_robots: u8,
-        ce: CE,
-        csn: CSN,
-        mut spi: SPI,
-        mut delay: DELAY,
         control_message_bind_address: String,
         robot_status_bind_address: String,
         robot_status_send_address: String,
+        gpio: &mut Gpio,
     ) -> Self {
-        let mut radio = Radio::new(ce, csn);
-        if radio.begin(&mut spi, &mut delay).is_err() {
-            panic!("Unable to Initialize the radio");
-        }
-        radio.set_pa_level(BASE_AMPLIFICATION_LEVEL, &mut spi, &mut delay);
-        radio.set_payload_size(CONTROL_MESSAGE_SIZE as u8, &mut spi, &mut delay);
-        radio.set_channel(CHANNEL, &mut spi, &mut delay);
-        radio.open_writing_pipe(ROBOT_RADIO_ADDRESSES[0], &mut spi, &mut delay);
-        radio.open_reading_pipe(1, BASE_STATION_ADDRESS, &mut spi, &mut delay);
-        radio.start_listening(&mut spi, &mut delay);
-        delay.delay_ms(1_000);
-        radio.stop_listening(&mut spi, &mut delay);
+        let radio_publisher_subscriber = match radio_number {
+            0 => NrfPublisherSubscriber::new(
+                team,
+                SimpleHalSpiDevice::new(Spi::new(spi::Bus::Spi0, spi::SlaveSelect::Ss0, 1_000_000, spi::Mode::Mode0).unwrap()),
+                gpio.get(RADIO_ONE_CSN).unwrap().into_output(),
+                gpio.get(RADIO_ONE_CE).unwrap().into_output(),
+            ).unwrap(),
+            _ => NrfPublisherSubscriber::new(
+                team,
+                SimpleHalSpiDevice::new(Spi::new(spi::Bus::Spi1, spi::SlaveSelect::Ss0, 1_000_000, spi::Mode::Mode0).unwrap()),
+                gpio.get(RADIO_TWO_CSN).unwrap().into_output(),
+                gpio.get(RADIO_TWO_CE).unwrap().into_output(),
+            ).unwrap(),
+        };
 
         let control_message_subscriber = UdpMappedSubscriber::new(
             control_message_bind_address.parse().unwrap(),
             id_from_message as fn(&ControlMessage) -> u8,
         ).unwrap();
-        let radio_publisher_subscriber = NrfPublisherSubscriber::new(radio, spi, delay);
         let robot_status_publisher = UdpPublisher::new(
             robot_status_bind_address.parse().unwrap(),
             vec![robot_status_send_address.parse().unwrap()],
@@ -90,7 +77,7 @@ impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<SPI, CSN, CE, DELAY, SPIE, GPIO
         let receive_message_publisher = LocalPublisher::new();
 
         Self {
-            team: team,
+            team,
             num_robots,
             control_message_subscriber,
             radio_publisher_subscriber,
@@ -110,24 +97,19 @@ impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> RadioNode<SPI, CSN, CE, DELAY, SPIE, GPIO
 
     fn send_and_await_response(&mut self, control_message: ControlMessage, robot_id: u8) {
         // Send Control Message
-        let _ = self.radio_publisher_subscriber.publish(control_message);
-
-        let start_instant = SystemTime::now();
-        while SystemTime::now().duration_since(start_instant).unwrap().as_millis() < 3 {
-            for data in self.radio_publisher_subscriber.get() {
-                self.robot_status_publisher.publish(*data).unwrap();
+        let _ = self.radio_publisher_subscriber.publish(Packet { robot_id, data: control_message });
+        if let Ok(data) = self.radio_publisher_subscriber.get() {
+            if let IncomingMessage::RobotStatus(status) = data {
+                self.robot_status_publisher.publish(*status).unwrap();
                 self.receive_message_publisher.publish(robot_id).unwrap();
+            } else {
+                println!("Received Test Message:\n{:?}", data);
             }
         }
     }
 }
 
-impl<SPI, CSN, CE, DELAY, SPIE, GPIOE> Node<NodeIdentifier> for RadioNode<SPI, CSN, CE, DELAY, SPIE, GPIOE> where
-    SPI: Transfer<u8, Error=SPIE> + Write<u8, Error=SPIE>,
-    CSN: OutputPin<Error=GPIOE>,
-    CE: OutputPin<Error=GPIOE>,
-    DELAY: DelayMs<u32> + DelayUs<u32>,
-{
+impl Node<NodeIdentifier> for RadioNode {
     fn get_id(&self) -> NodeIdentifier {
         NodeIdentifier::Radio1
     }

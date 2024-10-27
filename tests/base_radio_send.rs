@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use rppal::{spi::{Spi, Bus, SlaveSelect, Mode}, gpio::Gpio, hal::Delay};
+use rppal::{gpio::Gpio, hal::Delay, spi::{Bus, Mode, SimpleHalSpiDevice, SlaveSelect, Spi}};
 
 use rtic_nrf24l01::Radio;
 use rtic_nrf24l01::config::*;
@@ -12,7 +12,7 @@ use ncomm::utils::packing::Packable;
 
 #[test]
 fn test_base_radio_send_hello() {
-    let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap();
+    let mut spi = SimpleHalSpiDevice::new(Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode0).unwrap());
     let gpio = Gpio::new().unwrap();
     let csn = gpio.get(8).unwrap().into_output();
     let ce = gpio.get(22).unwrap().into_output();
