@@ -20,7 +20,7 @@ use robojackets_robocup_rtp::{
 };
 
 /// The maximum velocity the robot can be moving in the X or Y direction (m/s)
-pub const MAX_BODY_VELOCITY: f32 = 1.0;
+pub const MAX_BODY_VELOCITY: f32 = 0.85;
 /// The maximum velocity the robot can be turning in the w direction (rad/s)
 pub const MAX_TURN_VELOCITY: f32 = 4.0;
 
