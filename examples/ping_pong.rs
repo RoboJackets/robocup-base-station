@@ -24,7 +24,7 @@ fn main() {
     radio.set_pa_level(power_amplifier::PowerAmplifier::PALow, &mut spi, &mut delay);
 
     radio.set_payload_size(4, &mut spi, &mut delay);
-
+    radio.set_channel(106, &mut spi, &mut delay);
     radio.open_writing_pipe([0xC3, 0xC3, 0xC3, 0xC3, 0xC1], &mut spi, &mut delay);
 
     radio.open_reading_pipe(1, [0xE7, 0xE7, 0xE7, 0xE7, 0xE7], &mut spi, &mut delay);

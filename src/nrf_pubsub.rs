@@ -169,11 +169,13 @@ impl<SPI, CSN, CE, GPIOE, SPIE> Publisher for NrfPublisherSubscriber<SPI, CSN, C
         self.radio.set_payload_size(ControlMessage::len() as u8, &mut self.spi, &mut self.delay);
         for _ in 0..self.retries {
             if self.radio.write(&buffer, &mut self.spi, &mut self.delay) {
+                println!("Packet Received");
                 break;
             }
             let next_time = self.clock.now() + Duration::from_micros(self.retry_delay);
             while self.clock.now() < next_time {}
         }
+        self.radio.start_listening(&mut self.spi, &mut self.delay);
         self.robot_data.insert(data.robot_id, Err(NrfSendError::Timeout));
         self.current_robot_id = data.robot_id;
 
@@ -189,7 +191,6 @@ impl<SPI, CSN, CE, GPIOE, SPIE> Publisher for NrfPublisherSubscriber<SPI, CSN, C
             Mode::SendBenchmark => self.radio.set_payload_size(RadioSendBenchmarkMessage::len() as u8, &mut self.spi, &mut self.delay),
         }
         self.data_mode = data.data.mode;
-        self.radio.start_listening(&mut self.spi, &mut self.delay);
         Ok(())
     }
 }
@@ -235,6 +236,7 @@ impl<SPI, CSN, CE, GPIOE, SPIE> Subscriber for NrfPublisherSubscriber<SPI, CSN, 
                 };
     
                 // Put the new data into the hashmap
+                println!("Incoming Message: {:?}", incoming_message);
                 self.robot_data.insert(self.current_robot_id, Ok(incoming_message));
                 break;
             }
