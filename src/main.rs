@@ -17,7 +17,7 @@ use std::error::Error;
 use ncomm::prelude::*;
 use ncomm::executors::ThreadedExecutor;
 
-use robocup_base_station::{timeout_checker::TimeoutCheckerNode, radio_node::RadioNode};
+use robocup_base_station::{radio_node::RadioNode, timeout_checker::TimeoutCheckerNode, visor_node::VisorNode, NodeIdentifier};
 
 use robojackets_robocup_rtp::Team;
 use rppal::gpio::Gpio;
@@ -69,6 +69,10 @@ struct Args {
     // Should we be running the yellow team
     #[arg(short, long, default_value_t = false)]
     pub yellow: bool,
+
+    // Should we run the diagnostics node
+    #[arg(short, long, default_value_t = false)]
+    pub diagnostics: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -106,6 +110,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         radio_node.create_subscriber(),
     );
 
+    let mut other_nodes: Vec<Box<dyn Node<NodeIdentifier>>> = Vec::new();
+    if args.diagnostics {
+        let (radio_diagnostics_subscriber, radio_update_subscriber) = radio_node.get_diagnostics();
+        other_nodes.push(Box::new(VisorNode::new(radio_diagnostics_subscriber, radio_update_subscriber, args.robots.into())));
+    }
+
     let (interrupt_tx, interrupt_rx) = unbounded();
 
     ctrlc::set_handler(move || {
@@ -118,6 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         vec![
             (vec![Box::new(radio_node)], 1),
             (vec![Box::new(timeout_node)], 2),
+            (other_nodes, 3),
         ]
     );
 

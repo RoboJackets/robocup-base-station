@@ -8,6 +8,9 @@ pub mod radio_node;
 // Radio Publishers
 pub mod nrf_pubsub;
 
+/// Supervisor Node
+pub mod visor_node;
+
 // PIN DEFINITIONS
 /// Chip Select (CSN) for the first Radio
 pub const RADIO_ONE_CSN: u8 = 8;
@@ -32,4 +35,6 @@ pub enum NodeIdentifier {
     Radio1,
     /// The node keeping track of timeouts
     Timeout,
+    /// The supervisor node
+    Visor,
 }

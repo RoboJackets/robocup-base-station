@@ -4,9 +4,9 @@
 
 use clap::Parser;
 
-use std::{error::Error, thread, time::{Duration, SystemTime}};
+use std::{error::Error, thread, time::Duration};
 
-use robojackets_robocup_rtp::{control_message::{ControlMessage, ControlMessageBuilder}, Team, BLUE_TEAM, YELLOW_TEAM};
+use robojackets_robocup_rtp::{control_message::ControlMessageBuilder, Team};
 
 use robocup_base_station::{nrf_pubsub::{IncomingMessage, NrfPublisherSubscriber, NrfSendError, Packet}, RADIO_ONE_CE, RADIO_ONE_CSN};
 
@@ -125,6 +125,4 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         thread::sleep(Duration::from_millis(100));
     }
-
-    Ok(())
 }
