@@ -7,25 +7,29 @@ edition = "2021"
 
 [dependencies]
 crossbeam = "0.8.4"
-ctrlc = "3.4.5"
+ctrlc = "3.4.7"
+display-interface-spi = "0.5.0"
+embedded-graphics = "0.8.1"
 embedded-hal = "1.0.0"
+ili9341 = "0.6.0"
 ncomm = "1.1.4"
-quanta = "0.12.3"
+quanta = "0.12.6"
 robojackets-robocup-rtp = "0.6.3"
+thread-priority = "2.1.0"
 
 [dependencies.rppal]
 version = "0.22.1"
 features = ["hal"]
 
 [dependencies.clap]
-version = "4.5.20"
+version = "4.5.40"
 features = ["derive"]
 
 [dependencies.rtic-nrf24l01]
 git = "https://github.com/N8BWert/rtic-nrf24l01.git"
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = "0.9.1"
 
 [features]
 default = []

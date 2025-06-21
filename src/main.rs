@@ -14,17 +14,20 @@
 
 use std::error::Error;
 
+use crossbeam::thread;
 use ncomm::prelude::*;
-use ncomm::executors::ThreadedExecutor;
+use ncomm::executors::SimpleExecutor;
 
-use robocup_base_station::{radio_node::RadioNode, timeout_checker::TimeoutCheckerNode, visor_node::VisorNode, NodeIdentifier};
-
+use robocup_base_station::relay_node::RelayNode;
+use robocup_base_station::timeout_checker::TimeoutCheckerNode;
 use robojackets_robocup_rtp::Team;
 use rppal::gpio::Gpio;
 
 use crossbeam::channel::unbounded;
 
 use clap::Parser;
+
+use thread_priority::{set_current_thread_priority, ThreadPriority};
 
 /// The Arguments passed to the base station program.
 #[derive(Parser)]
@@ -92,9 +95,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let alive_robots_bind_address = format!("0.0.0.0:{}", args.alive_robots_port);
     let alive_robots_send_address = format!("{}:{}", args.field_computer_address, args.alive_robots_port);
 
-    let mut radio_node = RadioNode::new(
+    let mut relay_node = RelayNode::new(
         team,
-        0,
         args.robots,
         control_message_bind_address,
         robot_status_bind_address,
@@ -102,19 +104,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         &mut gpio,
     );
 
-    let timeout_node = TimeoutCheckerNode::new(
+    let timeout_checker = TimeoutCheckerNode::new(
         args.robots,
-        args.timeout,
+        5_000,
         alive_robots_bind_address,
         alive_robots_send_address,
-        radio_node.create_subscriber(),
+        relay_node.subscribe_to_receive_timestamps()
     );
-
-    let mut other_nodes: Vec<Box<dyn Node<NodeIdentifier>>> = Vec::new();
-    if args.diagnostics {
-        let (radio_diagnostics_subscriber, radio_update_subscriber) = radio_node.get_diagnostics();
-        other_nodes.push(Box::new(VisorNode::new(radio_diagnostics_subscriber, radio_update_subscriber, args.robots.into())));
-    }
 
     let (interrupt_tx, interrupt_rx) = unbounded();
 
@@ -122,18 +118,31 @@ fn main() -> Result<(), Box<dyn Error>> {
         interrupt_tx.send(true).unwrap();
     }).expect("Unable to set ctrl-c handler");
 
-    let mut executor = ThreadedExecutor::new_with(
-        interrupt_rx,
-        0,
-        vec![
-            (vec![Box::new(radio_node)], 1),
-            (vec![Box::new(timeout_node)], 2),
-            (other_nodes, 3),
-        ]
+    let mut executor = SimpleExecutor::new_with(
+        interrupt_rx.clone(),
+        vec![Box::new(timeout_checker)]
     );
 
-    executor.start();
-    executor.update_loop();
+    relay_node.start();
+    thread::scope(|s| {
+        let handle = s.spawn(move |_| {
+            set_current_thread_priority(ThreadPriority::Max).unwrap();
+            let mut interrupted = false;
+            while !interrupted {
+                if let Ok(interrupt) = interrupt_rx.try_recv() {
+                    interrupted = interrupt;
+                }
+                relay_node.update();
+            }
+            relay_node
+        });
+
+        executor.start();
+        executor.update_loop();
+
+        let mut relay_node = handle.join().unwrap();
+        relay_node.shutdown();
+    }).unwrap();
 
     Ok(())
 }
