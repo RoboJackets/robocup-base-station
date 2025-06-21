@@ -9,6 +9,7 @@ use std::time::Duration;
 use super::NodeIdentifier;
 
 use ncomm::prelude::*;
+use ncomm::pubsubs::local::LocalSubscriber;
 use ncomm::pubsubs::{local::{LocalMappedSubscriber, LocalPublisher}, udp::UdpPublisher};
 
 use ncomm::utils::packing::Packable;
@@ -96,6 +97,11 @@ impl TimeoutCheckerNode {
             local_alive_robots_publisher: LocalPublisher::new(),
             clock: Clock::new(),
         }
+    }
+
+    // Subscribe to the alive robots publisher
+    pub fn subscribe_to_alive_robots(&mut self) -> LocalSubscriber<AliveRobotsMessage> {
+        self.local_alive_robots_publisher.subscribe()
     }
 }
 impl Node<NodeIdentifier> for TimeoutCheckerNode {

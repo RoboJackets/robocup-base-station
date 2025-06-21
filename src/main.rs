@@ -13,12 +13,13 @@
 //! 
 
 use std::error::Error;
+use std::time::Duration;
 
 use crossbeam::thread;
 use ncomm::prelude::*;
 use ncomm::executors::SimpleExecutor;
 
-use robocup_base_station::relay_node::RelayNode;
+use robocup_base_station::{display_node::DisplayNode, relay_node::RelayNode};
 use robocup_base_station::timeout_checker::TimeoutCheckerNode;
 use robojackets_robocup_rtp::Team;
 use rppal::gpio::Gpio;
@@ -104,12 +105,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         &mut gpio,
     );
 
-    let timeout_checker = TimeoutCheckerNode::new(
+    let mut timeout_checker = TimeoutCheckerNode::new(
         args.robots,
         5_000,
         alive_robots_bind_address,
         alive_robots_send_address,
         relay_node.subscribe_to_receive_timestamps()
+    );
+
+    let display_node = DisplayNode::new(
+        timeout_checker.subscribe_to_alive_robots(),
+        relay_node.subscribe_to_robot_statuses(Duration::from_millis(500)),
+        relay_node.subscribe_to_radio_status(),
+        &mut gpio,
     );
 
     let (interrupt_tx, interrupt_rx) = unbounded();
@@ -120,7 +128,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut executor = SimpleExecutor::new_with(
         interrupt_rx.clone(),
-        vec![Box::new(timeout_checker)]
+        vec![
+            Box::new(timeout_checker),
+            Box::new(display_node),
+        ]
     );
 
     relay_node.start();
