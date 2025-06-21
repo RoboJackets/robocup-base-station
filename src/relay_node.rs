@@ -160,12 +160,12 @@ impl RelayNode {
         self.radio.stop_listening(&mut self.spi, &mut self.delay);
         self.radio.open_reading_pipe(
             1,
-            ROBOT_RADIO_ADDRESSES[(team == Team::Yellow) as usize][0],
+            BASE_STATION_ADDRESSES[(team == Team::Yellow) as usize],
             &mut self.spi,
             &mut self.delay,
         );
         self.radio.open_writing_pipe(
-            BASE_STATION_ADDRESSES[(team == Team::Yellow) as usize],
+            ROBOT_RADIO_ADDRESSES[(self.team == Team::Yellow) as usize][0],
             &mut self.spi,
             &mut self.delay,
         );
