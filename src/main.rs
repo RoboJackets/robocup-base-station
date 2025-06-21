@@ -137,7 +137,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     relay_node.start();
     thread::scope(|s| {
         let handle = s.spawn(move |_| {
-            set_current_thread_priority(ThreadPriority::Max).unwrap();
+            // TODO: Set thread priority
             let mut interrupted = false;
             while !interrupted {
                 if let Ok(interrupt) = interrupt_rx.try_recv() {
