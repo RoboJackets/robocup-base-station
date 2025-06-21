@@ -60,11 +60,11 @@ pub struct RelayNode {
     /// A reference clock
     ref_clock: Clock,
     /// The nrf radio
-    radio: Radio<OutputPin, OutputPin, SimpleHalSpiDevice, Infallible, spi::Error>,
+    radio: Radio<OutputPin, OutputPin, SimpleHalSpiDevice<Spi>, Infallible, spi::Error>,
     /// An embedded-hal implemented delay
     delay: Delay,
     /// The spi peripheral for the radio
-    spi: SimpleHalSpiDevice,
+    spi: SimpleHalSpiDevice<Spi>,
     /// The most recent status of each robot
     robot_data: HashMap<u8, RobotStatusMessage>,
 }

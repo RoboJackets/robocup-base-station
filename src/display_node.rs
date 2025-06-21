@@ -58,11 +58,9 @@ impl Node<NodeIdentifier> for DisplayNode {
 
     fn update(&mut self) {
         // TODO: Check the subscriptions and update the display
-        let alive_robots = self.alive_robots_subscription.get().as_ref().unwrap();
-        let _robot_statuses = self.robot_status_subscription.get();
-        let _radio_status = self.radio_status_subscription.get().as_ref().unwrap();
-
-        println!("{:?}", alive_robots);
+        if let Some(alive_robots) = self.alive_robots_subscription.get().as_ref() {
+            println!("{:?}", alive_robots);
+        }
     }
 
     fn shutdown(&mut self) {
