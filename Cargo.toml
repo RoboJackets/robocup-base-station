@@ -16,6 +16,7 @@ ncomm = "1.1.4"
 quanta = "0.12.6"
 robojackets-robocup-rtp = "0.6.3"
 thread-priority = "2.1.0"
+tokio = { version = "1.46.1", features = ["full"] }
 
 [dependencies.rppal]
 version = "0.18.0"

@@ -10,6 +10,14 @@ pub mod input_node;
 pub const RADIO_ONE_CSN: u8 = 8;
 /// Chip Enable (CE) for the second Radio
 pub const RADIO_ONE_CE: u8 = 22;
+/// The channel radio 1 is on
+pub const RADIO_ONE_CHANNEL: u8 = 106;
+/// Chip Select (CSN) for the second Radio
+pub const RADIO_TWO_CSN: u8 = 10;
+/// Chip Enable (CE) for the second Radio
+pub const RADIO_TWO_CE: u8 = 11;
+/// The channel radio 2 is on
+pub const RADIO_TWO_CHANNEL: u8 = 107;
 /// The Display Reset
 pub const DISPLAY_RESET: u8 = 12;
 /// The display DC
