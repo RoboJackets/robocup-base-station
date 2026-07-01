@@ -19,4 +19,4 @@ pub const RADIO_IRQ: u8 = 25;
 /// The base amplification level of the signals to send to the robots
 pub const BASE_AMPLIFICATION_LEVEL: PowerAmplifier = PowerAmplifier::PALow;
 /// The Radio channel to use (f = 2400 + CHANNEL (MHz))
-pub const CHANNEL: u8 = 106;
+pub const CHANNEL: u8 = 104;
