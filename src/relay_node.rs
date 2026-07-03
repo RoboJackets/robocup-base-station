@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::time::Duration;
+use std::time::{Duration, Instant as StdInstant};
 
 use ncomm::prelude::*;
 use ncomm::pubsubs::local::{LocalMappedSubscriber, LocalMappedTTLSubscriber, LocalPublisher, LocalSubscriber};
@@ -172,10 +172,15 @@ impl RelayNode {
     }
 
     /// Send a control packet to a robot
-    fn send_control_message(&mut self, control_message: ControlMessage) -> Mode {
+    ///
+    /// If `received_at` is provided (the timestamp the command was received from the
+    /// field computer), latency from network receive to radio transmission is logged.
+    fn send_control_message(&mut self, control_message: ControlMessage, received_at: Option<StdInstant>) -> Mode {
+        let pack_start = StdInstant::now();
         let mut buffer = vec![0u8; ControlMessage::len()];
         control_message.pack(&mut buffer).unwrap();
 
+        let config_start = StdInstant::now();
         self.radio.stop_listening(&mut self.spi, &mut self.delay);
         self.radio.open_writing_pipe(
             ROBOT_RADIO_ADDRESSES[(self.team == Team::Yellow) as usize][control_message.robot_id as usize],
@@ -183,7 +188,21 @@ impl RelayNode {
             &mut self.delay,
         );
         self.radio.set_payload_size(ControlMessage::len() as u8, &mut self.spi, &mut self.delay);
+        let write_start = StdInstant::now();
         let _ = self.radio.write(&buffer, &mut self.spi, &mut self.delay);
+
+        if let Some(received_at) = received_at {
+            println!(
+                "[latency] robot {}: network receive -> radio write start: {}us (pack: {}us, radio config: {}us, radio write: {}us, total: {}us)",
+                control_message.robot_id,
+                (write_start - received_at).as_micros(),
+                (config_start - pack_start).as_micros(),
+                (write_start - config_start).as_micros(),
+                write_start.elapsed().as_micros(),
+                received_at.elapsed().as_micros(),
+            );
+        }
+
         control_message.mode
     }
 
@@ -228,12 +247,15 @@ impl Node<NodeIdentifier> for RelayNode {
 
     fn update(&mut self) {
         for robot_id in 0..self.num_robots {
-            let control_message = match self.command_subscriber.get().get(&robot_id) {
-                Some(control_message) => control_message.0,
-                None => ControlMessageBuilder::new().team(self.team).build(),
+            // The TTL subscriber stores the std::time::Instant each command was pulled
+            // off the UDP socket -- keep it so we can measure receive -> transmit latency.
+            // Blank keep-alive messages have no network origin, so they aren't timed.
+            let (control_message, received_at) = match self.command_subscriber.get().get(&robot_id) {
+                Some((control_message, received_at)) => (*control_message, Some(*received_at)),
+                None => (ControlMessageBuilder::new().team(self.team).build(), None),
             };
 
-            self.send_control_message(control_message);
+            self.send_control_message(control_message, received_at);
             if let Some(status) = self.receive_status(robot_id) {
                 // We received a response from the robot in the alloted time
                 self.receive_timestamp_publisher.publish((robot_id, self.ref_clock.now())).unwrap();
